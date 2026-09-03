@@ -78,7 +78,13 @@ if (blockNames.size && itemNames.size) {
     'wheat', 'nether_wart', 'sweet_berry_bush', 'tripwire', 'redstone_wire', 'bamboo_sapling',
     'kelp_plant', 'cave_vines', 'cave_vines_plant', 'twisting_vines_plant', 'weeping_vines_plant',
     'tall_seagrass', 'chorus_plant', 'pitcher_crop', 'torchflower_crop', 'powder_snow']);
-  const missing = [...blockNames].filter((b) => !SKIP.has(b) && !itemNames.has(b) && !b.endsWith('_wall_sign'));
+  // Blocks that exist only as a placed state of another item never have an item of their own.
+  const STATE_ONLY = /(^|_)wall_(sign|banner|torch|head|skull|fan|hanging_sign)$|_wall_sign$|_wall_banner$|_wall_torch$|_wall_head$|_wall_skull$|_wall_fan$|_wall_hanging_sign$|^potted_|_plant$|_crop$|^attached_|_stem$|^big_dripleaf_stem$/;
+  const NO_ITEM = new Set(['farmland', 'dirt_path', 'grass_path', 'lit_furnace', 'lit_redstone_ore',
+    'lit_redstone_lamp', 'carved_pumpkin_lit', 'jack_o_lantern_lit', 'cake_slice', 'nether_portal',
+    'end_portal', 'end_gateway', 'soul_fire', 'fire', 'tripwire', 'redstone_wire', 'moving_piston', 'water_cauldron', 'lava_cauldron', 'powder_snow_cauldron']);
+  const missing = [...blockNames].filter((b) =>
+    !SKIP.has(b) && !NO_ITEM.has(b) && !STATE_ONLY.test(b) && !itemNames.has(b));
   if (missing.length) warn(`${missing.length} blocks have no item: ${missing.slice(0, 25).join(', ')}${missing.length > 25 ? ' ...' : ''}`);
 }
 

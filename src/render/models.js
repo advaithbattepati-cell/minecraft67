@@ -1872,9 +1872,8 @@ function spiderParts(o) {
   ];
   // Four pairs of 16-long legs, mirrored across X and spread along Z.
   const zs = [2, 1, 0, -1];
-  const zBase = [-1, 0, 1, 2];
   for (let i = 0; i < 4; i++) {
-    parts.push(P('right_leg' + i, -4, 9, zs[i] + zBase[i] * 0,
+    parts.push(P('right_leg' + i, -4, 9, zs[i],
       [bxu(-15, -1, -1, 16, 2, 2, 18, 0, 16, 2, 2)],
       { rot: [0, -0.7853 + i * 0.5236, -0.7853 + i * 0.1] }));
     parts.push(P('left_leg' + i, 4, 9, zs[i],
@@ -2143,5 +2142,205 @@ defineModel('allay', {
       if (p.right_arm) { p.right_arm.rotation.x = -1.5; p.right_arm.rotation.z = -0.3; }
       if (p.left_arm) { p.left_arm.rotation.x = -1.5; p.left_arm.rotation.z = 0.3; }
     }
+  },
+});
+
+defineModel('warden', {
+  skin: 'warden', scale: 1.05,
+  parts: [
+    P('body', 0, 13, 0, [bxu(-9, -21, -5.5, 18, 21, 11, 16, 16, 8, 12, 4)], {
+      children: [
+        P('ribcage', 0, -12, 0, [bxu(-9, -9, -6, 18, 12, 1, 16, 16, 8, 12, 4)], { alpha: true }),
+        P('heart', 0, -13, 0, [bxu(-2, -2, -6.5, 4, 4, 1, 16, 16, 4, 4, 1)], { bright: true }),
+      ],
+    }),
+    P('head', 0, 34, 0, [bxu(-8, -8, -5, 16, 8, 10, 0, 0, 8, 8, 8)], {
+      children: [
+        P('right_tendril', -8, 6, 0, [bxu(-16, -2, 0, 16, 2, 0, 32, 0, 16, 2, 0)], { alpha: true }),
+        P('left_tendril', 8, 6, 0, [bxu(0, -2, 0, 16, 2, 0, 32, 0, 16, 2, 0)], { alpha: true }),
+      ],
+    }),
+    P('right_arm', -11, 32, 0, [bxu(-4, -2, -4, 8, 26, 8, 40, 16, 4, 12, 4)]),
+    P('left_arm', 11, 32, 0, [bxu(-4, -2, -4, 8, 26, 8, 40, 16, 4, 12, 4)]),
+    P('right_leg', -5.5, 13, 0, [bxu(-3.5, 0, -3.5, 7, 13, 7, 0, 16, 4, 12, 4)]),
+    P('left_leg', 5.5, 13, 0, [bxu(-3.5, 0, -3.5, 7, 13, 7, 16, 48, 4, 12, 4)]),
+  ],
+  animate: (p, e, t) => {
+    look(p, t);
+    // Heavy, slow gait: long limbs with a low frequency and a big amplitude.
+    const a = sin(t.limbSwing * 0.4) * 0.9 * t.limbSwingAmount;
+    if (p.right_leg) p.right_leg.rotation.x = a;
+    if (p.left_leg) p.left_leg.rotation.x = -a;
+    if (p.right_arm) { p.right_arm.rotation.x = -a * 0.8; p.right_arm.rotation.z = -0.12 + cos(t.age * 0.05) * 0.05; }
+    if (p.left_arm) { p.left_arm.rotation.x = a * 0.8; p.left_arm.rotation.z = 0.12 - cos(t.age * 0.05) * 0.05; }
+    if (p.body) {
+      p.body.rotation.x = 0.06 + sin(t.age * 0.05) * 0.03;
+      p.body.position.y += Math.abs(sin(t.limbSwing * 0.4)) * t.limbSwingAmount * 0.8 * S;
+    }
+    // The chest heart beats faster the angrier the warden is.
+    const rage = clamp((e.anger || 0) / 80, 0, 1);
+    const beat = 0.6 + rage * 1.4;
+    const pulse = 1 + Math.pow(Math.abs(sin(t.age * 0.09 * beat)), 6) * 0.6;
+    if (p.heart) p.heart.scale.set(pulse, pulse, 1);
+    if (p.ribcage) p.ribcage.scale.set(1, 1 + (pulse - 1) * 0.15, 1);
+    const wig = sin(t.age * 0.13) * 0.25 + rage * 0.4;
+    if (p.right_tendril) { p.right_tendril.rotation.z = -0.2 - wig; p.right_tendril.rotation.y = sin(t.age * 0.09) * 0.2; }
+    if (p.left_tendril) { p.left_tendril.rotation.z = 0.2 + wig; p.left_tendril.rotation.y = -sin(t.age * 0.09) * 0.2; }
+    if (e.sniffing) {
+      if (p.head) { p.head.rotation.x = -0.5 + sin(t.age * 0.2) * 0.15; p.head.position.y += 2 * S; }
+    } else if (e.roaring) {
+      if (p.head) p.head.rotation.x = -0.7;
+      if (p.right_arm) p.right_arm.rotation.x = -2.2;
+      if (p.left_arm) p.left_arm.rotation.x = -2.2;
+    }
+    if (t.swing > 0) {
+      const f = sin(t.swing * PI);
+      if (p.right_arm) p.right_arm.rotation.x -= f * 2.4;
+      if (p.body) p.body.rotation.y = f * 0.35;
+    }
+  },
+});
+
+defineModel('breeze', {
+  skin: 'breeze', scale: 1.0,
+  parts: [
+    P('head', 0, 26, 0, [bxu(-4, -8, -4, 8, 8, 8, 0, 0, 8, 8, 8)], {
+      children: [P('eyes', 0, 0, 0, [bxu(-4, -6, -4.4, 8, 3, 1, 0, 0, 8, 3, 1)], { bright: true })],
+    }),
+    P('body', 0, 18, 0, [bxu(-5, 0, -5, 10, 10, 10, 16, 16, 8, 12, 4)]),
+    P('wind_top', 0, 20, 0, [bxu(-7, 0, -7, 14, 3, 14, 0, 32, 8, 3, 8)], { alpha: true }),
+    P('wind_mid', 0, 14, 0, [bxu(-9, 0, -9, 18, 3, 18, 0, 32, 8, 3, 8)], { alpha: true }),
+    P('wind_bottom', 0, 8, 0, [bxu(-11, 0, -11, 22, 3, 22, 0, 32, 8, 3, 8)], { alpha: true }),
+  ],
+  animate: (p, e, t) => {
+    look(p, t);
+    // Body of swirling wind: three rings counter-rotating at different rates.
+    if (p.wind_top) { p.wind_top.rotation.y = t.age * 0.11; p.wind_top.scale.setScalar(0.9 + sin(t.age * 0.2) * 0.1); }
+    if (p.wind_mid) { p.wind_mid.rotation.y = -t.age * 0.08; p.wind_mid.scale.setScalar(0.95 + sin(t.age * 0.2 + 1) * 0.1); }
+    if (p.wind_bottom) { p.wind_bottom.rotation.y = t.age * 0.06; p.wind_bottom.scale.setScalar(1 + sin(t.age * 0.2 + 2) * 0.1); }
+    if (p.body) { p.body.rotation.y = t.age * 0.04; p.body.position.y += sin(t.age * 0.15) * 0.8 * S; }
+    if (p.head) p.head.position.y += sin(t.age * 0.15) * 0.8 * S;
+    if (e.charging || t.swing > 0) {
+      const f = t.swing > 0 ? sin(t.swing * PI) : 1;
+      if (p.body) p.body.scale.set(1 + f * 0.2, 1 - f * 0.25, 1 + f * 0.2);
+    }
+  },
+});
+
+defineModel('creaking', {
+  skin: 'creaking', scale: 1.0,
+  parts: (() => {
+    const parts = humanoidParts({ armW: 2, armD: 2, legW: 3, armLen: 18, legLen: 16, bodyH: 12, outer: false });
+    parts[0].children.push(P('eyes', 0, 0, 0, [bxu(-4, -6, -4.4, 8, 2, 1, 0, 0, 8, 2, 1)], { bright: true }));
+    return parts;
+  })(),
+  animate: (p, e, t) => {
+    look(p, t);
+    // Creakings only move while unobserved, so freeze hard when watched.
+    if (e.watched || e.frozen) {
+      if (p.right_arm) p.right_arm.rotation.set(-0.3, 0, -0.25);
+      if (p.left_arm) p.left_arm.rotation.set(-0.3, 0, 0.25);
+      return;
+    }
+    walk(p, t, 1.1, 0.8);
+    if (p.right_arm) { p.right_arm.rotation.z = -0.25 + sin(t.age * 0.11) * 0.06; }
+    if (p.left_arm) { p.left_arm.rotation.z = 0.25 - sin(t.age * 0.11) * 0.06; }
+    if (p.body) p.body.rotation.x = 0.12 + sin(t.age * 0.07) * 0.03;
+    attackSwing(p, t, 'right_arm');
+  },
+});
+
+defineModel('snow_golem', {
+  skin: 'snow_golem',
+  parts: [
+    P('body_bottom', 0, 12, 0, [bxu(-6, 0, -6, 12, 12, 12, 16, 16, 8, 12, 4)]),
+    P('body_top', 0, 12, 0, [bxu(-5, -8, -5, 10, 10, 10, 16, 16, 8, 12, 4)]),
+    P('head', 0, 24, 0, [bxu(-4, -4, -4, 8, 8, 8, 0, 0, 8, 8, 8)], {
+      children: [P('hat', 0, 0, 0, [bxu(-4, -4, -4, 8, 8, 8, 32, 0, 8, 8, 8, 0.45)], { alpha: true })],
+    }),
+    P('right_arm', -5, 20, 0, [bxu(-12, -1, -1, 12, 2, 2, 40, 16, 4, 12, 4)], { rot: [0, 0, -0.35] }),
+    P('left_arm', 5, 20, 0, [bxu(0, -1, -1, 12, 2, 2, 40, 16, 4, 12, 4)], { rot: [0, 0, 0.35] }),
+  ],
+  animate: (p, e, t) => {
+    look(p, t);
+    const wob = sin(t.limbSwing * 0.6662) * 0.06 * t.limbSwingAmount;
+    if (p.body_bottom) p.body_bottom.rotation.y = wob * 2;
+    if (p.body_top) { p.body_top.rotation.y = -wob * 2; p.body_top.position.y += Math.abs(wob) * 3 * S; }
+    if (p.head) p.head.position.y += Math.abs(wob) * 4 * S;
+    const flail = sin(t.age * 0.15) * 0.1;
+    if (p.right_arm) p.right_arm.rotation.z = -0.35 - flail;
+    if (p.left_arm) p.left_arm.rotation.z = 0.35 + flail;
+    if (t.swing > 0) {
+      const f = sin(t.swing * PI);
+      if (p.right_arm) p.right_arm.rotation.x = -f * 1.4;
+      if (p.left_arm) p.left_arm.rotation.x = -f * 1.4;
+    }
+  },
+});
+
+defineModel('iron_golem', {
+  skin: 'iron_golem',
+  parts: [
+    P('head', 0, 31, -2, [bxu(-4, -12, -5.5, 8, 10, 8, 0, 0, 8, 8, 8)], {
+      children: [P('nose', 0, 0, 0, [bxu(-1, -5, -7.5, 2, 4, 2, 0, 0, 2, 4, 2)])],
+    }),
+    P('body', 0, 31, 0, [
+      bxu(-9, -2, -6, 18, 12, 11, 16, 16, 8, 12, 4),
+      bxu(-4.5, 10, -3, 9, 5, 6, 16, 32, 8, 5, 6),
+    ]),
+    P('right_arm', -9, 31, 0, [bxu(-4, -2.5, -3, 4, 30, 6, 40, 16, 4, 12, 4)]),
+    P('left_arm', 9, 31, 0, [bxu(0, -2.5, -3, 4, 30, 6, 40, 16, 4, 12, 4)]),
+    P('right_leg', -4, 16, 0, [bxu(-3.5, 0, -3, 6, 16, 5, 0, 16, 4, 12, 4)]),
+    P('left_leg', 5, 16, 0, [bxu(-2.5, 0, -3, 6, 16, 5, 16, 48, 4, 12, 4)]),
+  ],
+  animate: (p, e, t) => {
+    look(p, t);
+    const a = sin(t.limbSwing * 0.6662) * 1.0 * t.limbSwingAmount;
+    if (p.right_leg) p.right_leg.rotation.x = a;
+    if (p.left_leg) p.left_leg.rotation.x = -a;
+    if (p.right_arm) p.right_arm.rotation.x = -a * 0.55;
+    if (p.left_arm) p.left_arm.rotation.x = a * 0.55;
+    // Iron golems lean into their stride and hold a flower when offering one.
+    const lean = Math.abs(sin(t.limbSwing * 0.6662)) * t.limbSwingAmount;
+    if (p.body) p.body.rotation.z = sin(t.limbSwing * 0.6662) * 0.06 * t.limbSwingAmount;
+    if (p.right_arm) p.right_arm.rotation.z = -0.05 - lean * 0.1;
+    if (p.left_arm) p.left_arm.rotation.z = 0.05 + lean * 0.1;
+    if (e.offeringFlower) {
+      if (p.right_arm) { p.right_arm.rotation.x = -0.9; p.right_arm.rotation.z = -0.1; }
+      if (p.head) p.head.rotation.x += 0.3;
+    }
+    if (t.swing > 0) {
+      const f = sin(t.swing * PI);
+      if (p.right_arm) p.right_arm.rotation.x = -f * 2.6;
+      if (p.left_arm) p.left_arm.rotation.x = -f * 2.6;
+      if (p.body) p.body.rotation.x = f * 0.15;
+    }
+  },
+});
+
+defineModel('armor_stand', {
+  skin: 'armor_stand',
+  parts: [
+    P('head', 0, 24, 0, [bxu(-1, -7, -1, 2, 7, 2, 0, 0, 8, 8, 8)]),
+    P('body', 0, 24, 0, [
+      bxu(-6, 0, -1.5, 12, 3, 3, 16, 16, 8, 12, 4),
+      bxu(-3, 3, -1, 2, 7, 2, 16, 16, 8, 12, 4),
+      bxu(1, 3, -1, 2, 7, 2, 16, 16, 8, 12, 4),
+      bxu(-4, 10, -1.5, 8, 2, 3, 16, 16, 8, 12, 4),
+    ]),
+    P('right_arm', -5, 22, 0, [bxu(-2, -2, -1, 2, 12, 2, 40, 16, 4, 12, 4)], { rot: [0, 0, -0.15] }),
+    P('left_arm', 5, 22, 0, [bxu(0, -2, -1, 2, 12, 2, 32, 48, 4, 12, 4)], { rot: [0, 0, 0.15] }),
+    P('right_leg', -2, 12, 0, [bxu(-1, 0, -1, 2, 11, 2, 0, 16, 4, 12, 4)]),
+    P('left_leg', 2, 12, 0, [bxu(-1, 0, -1, 2, 11, 2, 16, 48, 4, 12, 4)]),
+    P('base', 0, 1, 0, [bxu(-6, -1, -6, 12, 1, 12, 0, 32, 12, 1, 12)]),
+  ],
+  animate: (p, e, t) => {
+    const pose = e.pose || null;
+    if (p.head) { p.head.rotation.y = t.headYaw; p.head.rotation.x = t.headPitch; }
+    if (pose) {
+      for (const k in pose) if (p[k] && pose[k]) p[k].rotation.set(pose[k][0] || 0, pose[k][1] || 0, pose[k][2] || 0);
+    }
+    // A struck stand wobbles for a moment instead of animating.
+    if (t.hurt > 0 && p.body) p.body.rotation.z = sin(t.age * 1.6) * 0.12 * t.hurt;
   },
 });
