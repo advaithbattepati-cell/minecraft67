@@ -753,10 +753,8 @@ export class World {
     if (prev === value) return false;
 
     const oldId = prev & ID_MASK, newId = value & ID_MASK;
-    const oldMeta = (prev >>> 12) & 15, newMeta = (value >>> 12) & 15;
 
     chunk.set(lx, y, lz, value);               // maintains heightmap + counters
-    chunk.modified = true;
 
     // Block entities belong to a block id; a different block loses its record.
     if (oldId !== newId) {
@@ -769,7 +767,9 @@ export class World {
     }
 
     if (flags & 1) {
-      this._updateLight(x, y, z, oldId, newId, oldMeta, newMeta);
+      // A meta-only change still matters here: lit furnaces and redstone lamps
+      // switch their emission with the metadata bit.
+      this._updateLight(x, y, z, oldId, newId);
       this.markDirty(x, y, z);
     }
 
@@ -1156,7 +1156,13 @@ export class World {
     const out = [];
     for (let i = 0; i < src.length; i++) {
       const e = src[i];
-      if (e.removed) { this._cellRemove(e); continue; }
+      if (e.removed) {
+        this._cellRemove(e);
+        // Entities that set `removed` themselves never went through
+        // removeEntity(), so drop their id here too.
+        if (this.entitiesById.get(e.id) === e) this.entitiesById.delete(e.id);
+        continue;
+      }
       out.push(e);
     }
     this.entities = out;
@@ -1653,8 +1659,10 @@ export class World {
       this.requestArea(flr(p.x) >> 4, flr(p.z) >> 4, dist);
     }
     if (this._pruneTimer <= 0) {
-      this._pruneTimer = 40;
-      this.pruneChunks(dist + 3, 6);
+      this._pruneTimer = 20;
+      // Walking across a chunk border strands a whole row of chunks, so the
+      // unload budget has to outpace the streaming radius.
+      this.pruneChunks(dist + 3, 32);
     }
   }
 
