@@ -90,6 +90,22 @@ try {
                     health: p.health, hunger: p.hunger, onGround: p.onGround } : null,
       chunks: g.world ? g.world.chunks.size : 0,
       entities: g.world ? g.world.entities.length : 0,
+      entityTypes: (() => {
+        if (!g.world) return null;
+        const c = {};
+        for (const e of g.world.entities) { const t = e.type || e.constructor.name; c[t] = (c[t] || 0) + 1; }
+        return Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, 15);
+      })(),
+      droppedItems: (() => {
+        if (!g.world) return null;
+        const c = {};
+        for (const e of g.world.entities) {
+          if (e.type !== 'item') continue;
+          const n = (e.stack && e.stack.item) || (e.itemStack && e.itemStack.item) || '?';
+          c[n] = (c[n] || 0) + 1;
+        }
+        return Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, 12);
+      })(),
       registries: window.__mc ? window.__mc.counts && window.__mc.counts() : null,
     };
   })()`).catch((e) => ({ evalError: String(e) }));

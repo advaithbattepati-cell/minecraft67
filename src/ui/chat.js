@@ -81,6 +81,10 @@ function ensureDeps() {
   grab('../world/biomes.js', 'biomes');
 }
 
+// Start the fetches as soon as this module is evaluated: no Game field is
+// touched, and by the time a player types a command they are long since in.
+ensureDeps();
+
 /** The live Chat instance, so module-level command bodies can talk back. */
 let ACTIVE = null;
 
@@ -98,8 +102,7 @@ function el(tag, cls, parent, text) {
 /** 12.3456 -> "12.35", 12 -> "12". Keeps chat coordinates readable. */
 function fmt(n) {
   if (!Number.isFinite(n)) return String(n);
-  const r = Math.round(n * 100) / 100;
-  return Number.isInteger(r) ? String(r) : String(r);
+  return String(Math.round(n * 100) / 100);
 }
 const fmtPos = (x, y, z) => `${fmt(x)}, ${fmt(y)}, ${fmt(z)}`;
 
@@ -116,12 +119,16 @@ function blockDisplay(name) {
 // ---------------------------------------------------------------------------
 // Colours
 // ---------------------------------------------------------------------------
-const COLOR_CODES = {
+// Null-prototype so a stray "constructor" or "toString" cannot be mistaken
+// for a colour code.
+const COLOR_CODES = Object.assign(Object.create(null), {
   0: 'black', 1: 'dark_blue', 2: 'dark_green', 3: 'dark_aqua', 4: 'dark_red',
   5: 'dark_purple', 6: 'gold', 7: 'gray', 8: 'dark_gray', 9: 'blue',
   a: 'green', b: 'aqua', c: 'red', d: 'light_purple', e: 'yellow', f: 'white',
-};
-const STYLE_CODES = { l: 'mc-bold', o: 'mc-italic', n: 'mc-under', m: 'mc-strike', k: 'mc-obf' };
+});
+const STYLE_CODES = Object.assign(Object.create(null), {
+  l: 'mc-bold', o: 'mc-italic', n: 'mc-under', m: 'mc-strike', k: 'mc-obf',
+});
 const COLOR_NAMES = new Set(Object.values(COLOR_CODES));
 /** Line kinds style.css already knows about. */
 const LINE_KINDS = new Set(['system', 'error', 'whisper', 'dim']);
@@ -378,7 +385,7 @@ const DIFFICULTY_NAMES = ['peaceful', 'easy', 'normal', 'hard'];
 const DIMENSION_NAMES = [DIM_OVERWORLD, DIM_NETHER, DIM_END];
 
 /** Argument-type -> candidate list, used by tab completion. */
-const ARG_SOURCES = {
+const ARG_SOURCES = Object.assign(Object.create(null), {
   item: itemNames,
   block: blockNames,
   mob: mobNames,
@@ -401,7 +408,7 @@ const ARG_SOURCES = {
   fillop: () => ['confirm', 'cancel'],
   target: () => ['@s', '@e', '@a', '@p'].concat(mobNames()),
   command: () => commandNames(),
-};
+});
 
 // ---------------------------------------------------------------------------
 // Argument parsing
@@ -748,10 +755,10 @@ cmd('tp', {
 });
 
 // ---- /time ----------------------------------------------------------------
-const TIME_PRESETS = {
+const TIME_PRESETS = Object.assign(Object.create(null), {
   day: TIME_DAY, noon: TIME_NOON, sunset: TIME_SUNSET, night: TIME_NIGHT,
   midnight: TIME_MIDNIGHT, sunrise: TIME_SUNRISE,
-};
+});
 cmd('time', {
   args: 'set <day|night|noon|midnight|ticks> | add <n> | query',
   desc: 'Reads or changes the world time.',
@@ -830,12 +837,12 @@ cmd('weather', {
 });
 
 // ---- /gamemode ------------------------------------------------------------
-const GAMEMODE_ALIASES = {
+const GAMEMODE_ALIASES = Object.assign(Object.create(null), {
   0: GAMEMODE.SURVIVAL, s: GAMEMODE.SURVIVAL, survival: GAMEMODE.SURVIVAL,
   1: GAMEMODE.CREATIVE, c: GAMEMODE.CREATIVE, creative: GAMEMODE.CREATIVE,
   2: GAMEMODE.ADVENTURE, a: GAMEMODE.ADVENTURE, adventure: GAMEMODE.ADVENTURE,
   3: GAMEMODE.SPECTATOR, sp: GAMEMODE.SPECTATOR, spectator: GAMEMODE.SPECTATOR,
-};
+});
 cmd('gamemode', {
   args: '<survival|creative|adventure|spectator>', desc: 'Switches your game mode.',
   aliases: ['gm'], types: ['gamemode'],
@@ -852,12 +859,12 @@ cmd('gamemode', {
 });
 
 // ---- /difficulty ----------------------------------------------------------
-const DIFFICULTY_ALIASES = {
+const DIFFICULTY_ALIASES = Object.assign(Object.create(null), {
   0: DIFFICULTY.PEACEFUL, p: DIFFICULTY.PEACEFUL, peaceful: DIFFICULTY.PEACEFUL,
   1: DIFFICULTY.EASY, e: DIFFICULTY.EASY, easy: DIFFICULTY.EASY,
   2: DIFFICULTY.NORMAL, n: DIFFICULTY.NORMAL, normal: DIFFICULTY.NORMAL,
   3: DIFFICULTY.HARD, h: DIFFICULTY.HARD, hard: DIFFICULTY.HARD,
-};
+});
 cmd('difficulty', {
   args: '<peaceful|easy|normal|hard>', desc: 'Sets the difficulty.',
   types: ['difficulty'], needsPlayer: false,
@@ -987,7 +994,6 @@ cmd('setblock', {
  * @returns {number} blocks actually changed
  */
 function bulkFill(world, x0, y0, z0, x1, y1, z1, id, meta, hollowOnly) {
-  const touched = new Set();
   let changed = 0;
   // bit 4 suppresses the per-block 'blockchange' event; bit 0/1 are left off so
   // 32k lighting passes and fluid cascades do not stall the frame.
@@ -996,10 +1002,7 @@ function bulkFill(world, x0, y0, z0, x1, y1, z1, id, meta, hollowOnly) {
     for (let z = z0; z <= z1; z++) {
       for (let x = x0; x <= x1; x++) {
         if (hollowOnly && x > x0 && x < x1 && y > y0 && y < y1 && z > z0 && z < z1) continue;
-        if (world.setBlock(x, y, z, id, meta, flags)) {
-          changed++;
-          touched.add(((x >> 4) & 0xffff) * 65536 + ((z >> 4) & 0xffff));
-        }
+        if (world.setBlock(x, y, z, id, meta, flags)) changed++;
       }
     }
   }
@@ -1022,7 +1025,6 @@ function bulkFill(world, x0, y0, z0, x1, y1, z1, id, meta, hollowOnly) {
       }
     }
   }
-  touched.clear();
   return changed;
 }
 
@@ -1348,7 +1350,7 @@ cmd('fly', {
     p.canFly = t;
     p.flying = t ? p.flying : false;
     if (t && !p.onGround) p.flying = true;
-    return ok(`Flight §e${t ? 'enabled' : 'disabled'}§f. ${t ? 'Double-tap jump to take off.' : ''}`);
+    return ok(`Flight §e${t ? 'enabled' : 'disabled'}${t ? '§f. Double-tap jump to take off.' : ''}`);
   },
 });
 
@@ -1612,6 +1614,8 @@ export class Chat {
     this._suggestSig = '';
     this._tokenStart = 0;
     this._tokenEnd = 0;
+    /** True while repeated Tab presses are walking the candidate list. */
+    this._cycling = false;
 
     this._now = 0;
     this._opacity = -1;
@@ -1672,7 +1676,11 @@ export class Chat {
     this.field.addEventListener('input', () => this._onInput());
     this.field.addEventListener('blur', () => {
       // Losing focus while open would silently swallow every keystroke.
-      if (this.open) setTimeout(() => { if (this.open) try { this.field.focus(); } catch { /* gone */ } }, 0);
+      if (!this.open) return;
+      setTimeout(() => {
+        if (!this.open) return;
+        try { this.field.focus({ preventScroll: true }); } catch { /* the field is gone */ }
+      }, 0);
     });
 
     this._onWheel = (e) => {
@@ -1805,9 +1813,14 @@ export class Chat {
     this.open = true;
     this.root.classList.add('open');
     this.inputBar.hidden = false;
+    // The log is bottom-aligned when shut; a flex-end column that overflows
+    // cannot always be scrolled back up, so switch to top alignment (and pin
+    // the view to the bottom) for as long as the scrollback is in use.
+    this.logEl.style.justifyContent = 'flex-start';
     this.field.value = pre;
     this.historyIndex = -1;
     this.draft = pre;
+    this._cycling = false;
 
     // The keystroke that opened us may still be dispatched into the field.
     this._guardUntil = (typeof performance !== 'undefined' ? performance.now() : Date.now()) + OPEN_GUARD_MS;
@@ -1833,6 +1846,7 @@ export class Chat {
     this.open = false;
     this.root.classList.remove('open');
     this.inputBar.hidden = true;
+    this.logEl.style.justifyContent = '';
     this.field.value = '';
     this.historyIndex = -1;
     this._hideSuggestions();
@@ -1895,20 +1909,17 @@ export class Chat {
   _onKeyDown(e) {
     const key = e.key;
     if (key === 'Enter' || key === 'NumpadEnter') {
+      // Enter always sends, even with the suggestion box up. Tab completes.
       e.preventDefault();
       e.stopPropagation();
-      if (this.suggestions.length && this.suggestIndex >= 0 && this._tokenEnd === this.field.selectionStart) {
-        // Enter with an active highlight accepts it, like the vanilla console.
-        this._applySuggestion(this.suggestions[this.suggestIndex], false);
-        return;
-      }
       this.send();
       return;
     }
     if (key === 'Escape') {
+      // Vanilla closes the whole line on Escape; the suggestion popup goes
+      // with it rather than swallowing the first press.
       e.preventDefault();
       e.stopPropagation();
-      if (!this.suggestEl.hidden) { this._hideSuggestions(); return; }
       this.closeInput();
       return;
     }
@@ -1923,7 +1934,7 @@ export class Chat {
       if (this.suggestions.length > 1 && !this.suggestEl.hidden) {
         e.preventDefault();
         e.stopPropagation();
-        this._moveSuggestion(dir);
+        this._moveSuggestion(dir, true);
         return;
       }
       e.preventDefault();
@@ -1956,6 +1967,7 @@ export class Chat {
       this._guardUntil = 0;
     }
     this.historyIndex = -1;
+    this._cycling = false;
     this.draft = this.field.value;
     this._updateSuggestions();
   }
@@ -1972,6 +1984,7 @@ export class Chat {
 
   _recallHistory(dir) {
     if (!this.history.length) return;
+    this._cycling = false;
     if (this.historyIndex === -1) {
       this.draft = this.field.value;
       this.historyIndex = this.history.length;
@@ -2062,37 +2075,54 @@ export class Chat {
     this.suggestions = [];
     this.suggestIndex = -1;
     this._suggestSig = '';
+    this._cycling = false;
     if (this.suggestEl) {
       this.suggestEl.hidden = true;
       this.suggestEl.textContent = '';
     }
   }
 
-  _moveSuggestion(dir) {
+  _moveSuggestion(dir, apply = false) {
     const n = this.suggestions.length;
     if (!n) return;
     this.suggestIndex = ((this.suggestIndex + dir) % n + n) % n;
     this._suggestSig = '';
     this._renderSuggestions();
+    if (apply) {
+      this._cycling = true;
+      this._applySuggestion(this.suggestions[this.suggestIndex], false);
+    }
   }
 
-  /** Tab: extend to the common prefix, else cycle through the candidates. */
+  /**
+   * Tab: first press extends to the longest common prefix, and once there is
+   * nothing left to extend, further presses cycle through the candidates.
+   */
   _complete(dir) {
     const ctx = this._context();
     if (!ctx) return;
-    this._updateSuggestions();
+    if (!this._cycling) this._updateSuggestions();
     const list = this.suggestions;
     if (!list.length) return;
-    if (list.length === 1) { this._applySuggestion(list[0], true); return; }
-
-    const common = commonPrefix(list);
-    if (common.length > ctx.token.length && common.toLowerCase().startsWith(normalizeName(ctx.token))) {
-      this._applySuggestion(common, false);
-      this._updateSuggestions();
+    if (list.length === 1) {
+      this._applySuggestion(list[0], true);
+      this._cycling = false;
       return;
     }
-    if (this.suggestIndex < 0) this.suggestIndex = 0;
-    else this._moveSuggestion(dir);
+    if (!this._cycling) {
+      const common = commonPrefix(list);
+      if (common.length > ctx.token.length && common.toLowerCase().startsWith(normalizeName(ctx.token))) {
+        this._applySuggestion(common, false);
+        this._updateSuggestions();
+        return;
+      }
+      this.suggestIndex = dir > 0 ? 0 : list.length - 1;
+      this._cycling = true;
+      this._suggestSig = '';
+      this._renderSuggestions();
+    } else {
+      this._moveSuggestion(dir);
+    }
     this._applySuggestion(list[this.suggestIndex], false);
   }
 
@@ -2160,7 +2190,9 @@ export class Chat {
   // -------------------------------------------------------------------------
   /** @param {number} dt seconds since the previous frame */
   update(dt) {
-    const step = dt > 0 && dt < 1 ? dt : 0;
+    // A tab that was in the background hands back a huge dt; clamp it so lines
+    // do not all expire at once when the player comes back.
+    const step = Number.isFinite(dt) && dt > 0 ? Math.min(dt, 0.5) : 0;
     this._now += step;
 
     // TPS estimate, sampled once a second.
@@ -2220,6 +2252,9 @@ export class Chat {
   _pollOpenKey() {
     const pending = this._pendingOpen;
     if (pending) {
+      // A press that never resolved (a screen opened in between) must not sit
+      // around waiting to reopen the chat much later.
+      if (Game.frame - pending.frame > 3) { this._pendingOpen = null; return; }
       if (Game.frame !== pending.frame) {
         this._pendingOpen = null;
         if (!this._otherUiOpen() && Game.started && !Game.paused) this.openInput(pending.prefix);

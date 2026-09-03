@@ -155,6 +155,30 @@ function fluidCanDestroy(world, x, y, z, def) {
   return isFlimsy(def) && def.hardness >= 0;
 }
 
+/**
+ * Blocks that Minecraft waterlogs instead of washing away: an ocean plant shares
+ * its cell with the water around it. We have no general waterlogging, so water
+ * treats these cells as already full - it neither fills nor destroys them, but
+ * still flows through. Without this every water update eats the kelp forest it
+ * is standing in, which drops thousands of items and buries the tick budget.
+ */
+let WATERLOGGED = null;
+function waterloggedIds() {
+  if (WATERLOGGED) return WATERLOGGED;
+  WATERLOGGED = new Set();
+  for (const d of BLOCKS) {
+    if (!d) continue;
+    const n = d.name;
+    const aquatic = n === 'kelp' || n === 'kelp_plant' || n === 'seagrass' || n === 'tall_seagrass'
+      || n === 'sea_pickle' || n === 'bubble_column'
+      || (!n.startsWith('dead_') && (n.endsWith('_coral') || n.endsWith('_coral_fan') || n.endsWith('_coral_wall_fan')));
+    if (aquatic) WATERLOGGED.add(d.id);
+  }
+  return WATERLOGGED;
+}
+/** True when this block already contains water and must not be flooded. */
+function holdsWater(id) { return waterloggedIds().has(id); }
+
 // ---------------------------------------------------------------------------
 // Cached block-id sets, built on first use so blocks.js is fully registered.
 // ---------------------------------------------------------------------------
@@ -401,6 +425,7 @@ function fluidCanReplace(world, x, y, z, fluidId) {
   if (id === fluidId) return false;
   const d = getBlock(id);
   if (d.liquid) return false;
+  if (fluidId === ids().water && holdsWater(id)) return false;   // already waterlogged
   if (d.hardness < 0) return false;              // bedrock, portals
   if (d.replaceable) return true;
   return isFlimsy(d);
@@ -410,6 +435,7 @@ function fluidCanReplace(world, x, y, z, fluidId) {
 function flowPassable(world, x, y, z, fluidId) {
   const id = world.getBlock(x, y, z);
   if (id === fluidId) return true;
+  if (fluidId === ids().water && holdsWater(id)) return true;    // water flows through kelp
   return fluidCanReplace(world, x, y, z, fluidId);
 }
 
@@ -457,6 +483,7 @@ function placeFluid(world, x, y, z, fluidId, meta) {
   if (id !== 0) {
     const d = getBlock(id);
     if (d.liquid) return false;
+    if (fluidId === ids().water && holdsWater(id)) return false;  // already waterlogged
     if (fluidCanDestroy(world, x, y, z, d)) breakNaturally(world, x, y, z);
     else if (!d.replaceable) return false;
   }

@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import { Game } from './core/game.js';
 import {
   TICK_MS, DIM_OVERWORLD, DIM_NETHER, DIM_END, GAMEMODE, DIFFICULTY,
-  DEFAULT_RENDER_DISTANCE, CHUNK_X, CHUNK_Z, SEA_LEVEL, WORLD_HEIGHT,
+  DEFAULT_RENDER_DISTANCE, CHUNK_X, CHUNK_Z, SEA_LEVEL, WORLD_HEIGHT, PLAYER_EYE,
 } from './core/constants.js';
 import { clamp } from './core/util.js';
 import { RNG, hashString } from './core/rng.js';
@@ -278,7 +278,9 @@ function wireEvents() {
   // Pointer lock drives pause so the player never fights an invisible cursor.
   if (Game.input) {
     Game.input.onLockChange = (locked) => {
-      if (!locked && Game.started && !Game.gameOver) {
+      // A lock request refused outright (no user gesture, headless, or a browser
+      // policy) must not pause a game the player just started.
+      if (!locked && Game.started && !Game.gameOver && Game.time - lastStartTime > 1) {
         const screenOpen = safe('screens.isOpen', () => Game.ui.screens.isOpen(), false);
         const menuOpen = safe('menu.visible', () => Game.ui.menu.visible, false);
         if (!screenOpen && !menuOpen) safe('menu.pause', () => Game.ui.menu.showPause(), null);
@@ -373,6 +375,7 @@ async function startNewWorld(opts = {}) {
   Game.ticks = 0;
   Game.started = true;
   Game.paused = false;
+  lastStartTime = Game.time;
   Game.emit('worldloaded', Game.world);
 
   safe('audio.init', () => Game.audio.init(), null);
@@ -418,6 +421,7 @@ function switchDimension(to) {
 // ---------------------------------------------------------------------------
 // The loop
 // ---------------------------------------------------------------------------
+let lastStartTime = -Infinity;
 let lastTime = 0;
 let tickAccumulator = 0;
 let fpsAccum = 0, fpsFrames = 0, fpsTimer = 0;
@@ -525,33 +529,49 @@ function frame(now) {
   }
 }
 
-/** Third/first person camera placement, view bobbing and the underwater tint. */
+/**
+ * Camera placement.
+ *
+ * The engine uses Minecraft's angle convention throughout - entities, items,
+ * mobs, AI and audio all take the look vector to be
+ *     (-sin(yaw)cos(pitch), -sin(pitch), cos(yaw)cos(pitch)).
+ * The three.js YXZ Euler that points a camera the same way is
+ * (-pitch, PI - yaw), NOT (pitch, yaw): the naive version is mirrored in both
+ * Y and Z, so the player would mine and walk opposite to the view. Player
+ * re-asserts this at matrix-update time; deriving it identically here keeps the
+ * two in agreement instead of fighting each other.
+ */
 let perspective = 0; // 0 first person, 1 third back, 2 third front
 function updateCamera(dt) {
   const p = Game.player;
   const cam = Game.camera;
-  const eye = p.eyeHeight ?? 1.62;
-  cam.rotation.set(p.pitch, p.yaw, 0, 'YXZ');
+  const eye = p.eyeHeight ?? PLAYER_EYE;
+  const eyeY = p.y + eye;
+
+  const cp = Math.cos(p.pitch), sp = Math.sin(p.pitch);
+  const fx = -Math.sin(p.yaw) * cp, fy = -sp, fz = Math.cos(p.yaw) * cp;
 
   let bobX = 0, bobY = 0;
   const bobEnabled = safe('bobSetting', () => Game.settings.get('viewBobbing'), true);
   if (bobEnabled && p.onGround && perspective === 0) {
     const speed = Math.hypot(p.vx, p.vz);
     const t = Game.time * 10;
-    bobX = Math.cos(t) * 0.03 * Math.min(speed / 4, 1);
-    bobY = Math.abs(Math.sin(t)) * 0.04 * Math.min(speed / 4, 1);
+    const amt = Math.min(speed / 4, 1);
+    bobX = Math.cos(t) * 0.03 * amt;
+    bobY = Math.abs(Math.sin(t)) * 0.04 * amt;
   }
 
   if (perspective === 0) {
-    cam.position.set(p.x + bobX, p.y + eye + bobY, p.z);
+    cam.position.set(p.x + bobX, eyeY + bobY, p.z);
+    cam.rotation.set(-p.pitch, Math.PI - p.yaw, 0, 'YXZ');
+  } else if (perspective === 1) {
+    const d = 4;                       // behind the player, looking forward
+    cam.position.set(p.x - fx * d, eyeY - fy * d, p.z - fz * d);
+    cam.rotation.set(-p.pitch, Math.PI - p.yaw, 0, 'YXZ');
   } else {
-    const dist = 4;
-    const dir = perspective === 1 ? -1 : 1;
-    const dx = Math.sin(p.yaw) * Math.cos(p.pitch) * dist * dir;
-    const dy = Math.sin(p.pitch) * dist * dir;
-    const dz = Math.cos(p.yaw) * Math.cos(p.pitch) * dist * dir;
-    if (perspective === 2) cam.rotation.set(-p.pitch, p.yaw + Math.PI, 0, 'YXZ');
-    cam.position.set(p.x + dx, p.y + eye + dy, p.z + dz);
+    const d = 4;                       // in front, looking back at the player
+    cam.position.set(p.x + fx * d, eyeY + fy * d, p.z + fz * d);
+    cam.rotation.set(p.pitch, -p.yaw, 0, 'YXZ');
   }
 }
 
@@ -608,9 +628,20 @@ const api = {
   broken: brokenSubsystems,
   bootNotes,
   setPerspective: (n) => { perspective = n % 3; },
-  /** Used by tools/verify.mjs to boot straight into a world without clicking. */
+  /** Resumes play, closing any menu. Safe to call when already running. */
+  resume() {
+    safe('api.menuHide', () => Game.ui.menu.hide(), null);
+    Game.paused = false;
+    Game.emit('resume');
+  },
+  /**
+   * Used by tools/verify.mjs to boot straight into a world without clicking.
+   * Headless browsers deny pointer lock (there is no user gesture), which would
+   * otherwise trip the auto-pause and freeze the simulation, so resume explicitly.
+   */
   async quickStart(opts) {
     await startNewWorld({ name: 'Test World', seed: 12345, mode: GAMEMODE.SURVIVAL, ...opts });
+    api.resume();
     return true;
   },
 };
