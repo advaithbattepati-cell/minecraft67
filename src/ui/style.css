@@ -11,8 +11,10 @@
                helpers: .hidden .gone .no-pointer .clickable .selectable
                         .mc-row .mc-col .mc-spacer .mc-center .mc-kbd
 
-   WIDGETS     .mc-panel (+.dark +.flush)      grey bevelled GUI panel
-               .mc-slot (+.large +.big +.armor +.result +.locked +.highlight)
+   WIDGETS     .stack-icon                    item icon (canvas/img/div), 16 GUI px
+               .mc-panel (+.dark +.flush)      grey bevelled GUI panel
+               .mc-slot (+.large +.big +.armor-slot +.offhand-slot +.result
+                         +.locked +.highlight +.filled)
                .mc-slot .slot-count .slot-durability > .slot-durability-fill
                .mc-slot .stack-glint             enchanted shimmer overlay
                .mc-button (+.primary +.danger +.small +.wide +.icon +.active
@@ -28,14 +30,17 @@
                .mc-tab (+.active +.top +.bottom)
                .mc-title (+.small +.big)         heading text
                .mc-list > .mc-list-item (+.selected +.disabled)
-               .mc-label .mc-hint .mc-divider .mc-badge
+               .mc-label .mc-hint .mc-divider .mc-badge .pixel
+               text style: .mc-bold .mc-italic .mc-strike .mc-under .mc-obf
+               toasts (in #toast-layer): .toast (+.out +.achievement) >
+                         .toast-icon .toast-title .toast-desc
 
    HUD         #hud .hotbar > .hotbar-slot (+.selected) , .hotbar-selector
                .hotbar-item-name .action-bar
                .hearts > .heart (+.empty +.half +.absorption +.poison
                                  +.wither +.frozen +.hardcore +.beat)
                .hunger > .food (+.empty +.half +.hungry)
-               .armor-bar > .armor (+.empty +.half)
+               .armor-bar > .armor (+.empty +.half)   [.armor only inside .armor-bar]
                .air-bar > .bubble (+.pop)
                .xp-bar > .xp-bar-fill ; .xp-level
                .crosshair (+.dot +.hit)
@@ -50,7 +55,8 @@
    SCREENS     .screen-overlay (+.blur) > .screen (+.wide +.tall)
                .screen-title .screen-body .screen-close .screen-footer
                .slot-grid .inventory-grid .hotbar-grid .chest-grid
-               .crafting-grid .crafting-arrow .armor-slots .offhand-slot
+               .crafting-grid .dispenser-grid .hopper-grid .crafting-arrow
+               .armor-slots (of .mc-slot.armor-slot) .player-preview
                .furnace-layout .furnace-arrow (--progress) .furnace-flame (--fuel)
                .anvil .anvil-plus .anvil-name-field .anvil-cost (+.too-expensive)
                .enchant-table .enchant-offer (+.disabled) > .enchant-level
@@ -70,6 +76,7 @@
                .settings-grid .settings-row .settings-category
                .keybind-row .keybind-key (+.listening +.conflict)
                .death-screen > .death-title .death-message .death-score
+               .pause-screen (dimmed world, no dirt)
 
    CHAT        #chat-layer(+.open) .chat-log > .chat-line (+.fading +.system)
                .chat-input > .chat-input-field ; .chat-suggestions >
@@ -242,16 +249,16 @@
   /* ---- HUD colours ------------------------------------------------------ */
   --mc-heart: #ff2b2b;
   --mc-heart-dark: #a01414;
-  --mc-heart-empty: rgba(38, 38, 38, 0.9);
+  --mc-heart-empty: rgba(74, 74, 74, 0.92);
   --mc-heart-absorption: #ffd83d;
   --mc-heart-poison: #7d9a2b;
   --mc-heart-wither: #2b2b2b;
   --mc-heart-frozen: #62c9ff;
   --mc-food: #c58b3b;
   --mc-food-dark: #6d4a1c;
-  --mc-food-empty: rgba(38, 38, 38, 0.9);
+  --mc-food-empty: rgba(74, 74, 74, 0.92);
   --mc-armor: #d5d9e0;
-  --mc-armor-empty: rgba(38, 38, 38, 0.9);
+  --mc-armor-empty: rgba(74, 74, 74, 0.92);
   --mc-air: #93d7ff;
   --mc-xp: #7ffb2a;
   --mc-xp-dark: #1d3f0c;
@@ -310,6 +317,16 @@ body {
   user-select: none;
   touch-action: none;
   cursor: default;
+}
+
+/* An item icon: sized once here so it works in slots, tabs, tooltips, toasts
+   and the recipe book alike. itemrender.js may hand us a <canvas> or a <div>. */
+.stack-icon {
+  display: block;
+  width: var(--slot-icon);
+  height: var(--slot-icon);
+  flex: 0 0 auto;
+  pointer-events: none;
 }
 
 /* Every raster surface in the UI is pixel art: never smooth it. */
@@ -483,10 +500,10 @@ textarea {
   background-position: 0 0, var(--u) var(--u);
   color: var(--mc-text-dark);
   box-shadow:
-    inset var(--u3) var(--u3) 0 0 var(--mc-gui-light),
-    inset calc(var(--u3) * -1) calc(var(--u3) * -1) 0 0 var(--mc-gui-dark),
-    0 0 0 var(--u3) var(--mc-outline),
-    0 var(--u2) 0 var(--u3) rgba(0, 0, 0, 0.28);
+    inset var(--u2) var(--u2) 0 0 var(--mc-gui-light),
+    inset calc(var(--u2) * -1) calc(var(--u2) * -1) 0 0 var(--mc-gui-dark),
+    0 0 0 var(--u2) var(--mc-outline),
+    0 var(--u2) 0 var(--u2) rgba(0, 0, 0, 0.28);
   text-shadow: none;
 }
 
@@ -548,6 +565,7 @@ textarea {
 }
 
 /* Armour/offhand slots draw a faint ghost glyph behind the item. */
+.mc-slot.armor-slot::after,
 .mc-slot.armor::after,
 .mc-slot.offhand-slot::after {
   content: '';
@@ -558,6 +576,7 @@ textarea {
   pointer-events: none;
 }
 
+.mc-slot.armor-slot.filled::after,
 .mc-slot.armor.filled::after,
 .mc-slot.offhand-slot.filled::after {
   display: none;
@@ -586,7 +605,7 @@ textarea {
 /* Stack count, bottom-right, hard shadow like vanilla. */
 .slot-count {
   position: absolute;
-  right: var(--un);
+  right: var(--u);
   bottom: 0;
   font-size: var(--fs-sm);
   line-height: 1;
@@ -1085,9 +1104,15 @@ input[type='range'].mc-slider::-moz-range-track {
 }
 
 .mc-panel .mc-label,
+.mc-panel .mc-hint,
+.mc-panel .settings-category,
 .mc-panel .mc-title:not(.light) {
   color: #3f3f3f;
   text-shadow: none;
+}
+
+.mc-panel .settings-category {
+  border-bottom-color: rgba(0, 0, 0, 0.25);
 }
 
 .mc-hint {
@@ -1312,6 +1337,12 @@ input[type='range'].mc-slider::-moz-range-track {
     linear-gradient(currentColor 0 0) calc(var(--u) * 1) calc(var(--u) * 7) / calc(var(--u) * 3) var(--u) no-repeat,
     linear-gradient(currentColor 0 0) 0 calc(var(--u) * 8) / calc(var(--u) * 2) var(--u) no-repeat;
 
+  /* Chained drop-shadows give a background-drawn sprite a 1px black outline,
+     which is what keeps neighbouring hearts from merging into a red band. */
+  --pixel-outline:
+    drop-shadow(var(--u) 0 0 #000) drop-shadow(var(--un) 0 0 #000)
+    drop-shadow(0 var(--u) 0 #000) drop-shadow(0 var(--un) 0 #000);
+
   --armor-layers:
     linear-gradient(currentColor 0 0) calc(var(--u) * 1) 0 / calc(var(--u) * 7) var(--u) no-repeat,
     linear-gradient(currentColor 0 0) 0 calc(var(--u) * 1) / calc(var(--u) * 9) calc(var(--u) * 4) no-repeat,
@@ -1363,7 +1394,7 @@ input[type='range'].mc-slider::-moz-range-track {
 
 .heart,
 .food,
-.armor {
+.armor-bar .armor {
   position: relative;
   width: calc(var(--gs) * 9px);
   height: calc(var(--gs) * 9px);
@@ -1381,44 +1412,58 @@ input[type='range'].mc-slider::-moz-range-track {
 .heart::after,
 .food::before,
 .food::after,
-.armor::before,
-.armor::after {
+.armor-bar .armor::before,
+.armor-bar .armor::after {
   content: '';
   position: absolute;
   inset: 0;
 }
 
 /* Empty (background) layer */
-.heart::before { color: var(--mc-heart-empty); background: var(--heart-layers); }
-.food::before { color: var(--mc-food-empty); background: var(--food-layers); }
-.armor::before { color: var(--mc-armor-empty); background: var(--armor-layers); }
+.heart::before {
+  color: var(--mc-heart-empty);
+  background: var(--heart-layers);
+  filter: var(--pixel-outline);
+}
+
+.food::before {
+  color: var(--mc-food-empty);
+  background: var(--food-layers);
+  filter: var(--pixel-outline);
+}
+
+.armor-bar .armor::before {
+  color: var(--mc-armor-empty);
+  background: var(--armor-layers);
+  filter: var(--pixel-outline);
+}
 
 /* Filled layer, clipped in half for the half-icon state */
 .heart::after {
   color: var(--mc-heart);
   background: var(--heart-layers);
-  filter: drop-shadow(var(--u) var(--u) 0 rgba(0, 0, 0, 0.45));
+  filter: var(--pixel-outline);
 }
 
 .food::after {
   color: var(--mc-food);
   background: var(--food-layers);
-  filter: drop-shadow(var(--u) var(--u) 0 rgba(0, 0, 0, 0.45));
+  filter: var(--pixel-outline);
 }
 
-.armor::after {
+.armor-bar .armor::after {
   color: var(--mc-armor);
   background: var(--armor-layers);
-  filter: drop-shadow(var(--u) var(--u) 0 rgba(0, 0, 0, 0.45));
+  filter: var(--pixel-outline);
 }
 
 .heart.empty::after,
 .food.empty::after,
-.armor.empty::after { display: none; }
+.armor-bar .armor.empty::after { display: none; }
 
 .heart.half::after,
 .food.half::after,
-.armor.half::after { clip-path: inset(0 50% 0 0); }
+.armor-bar .armor.half::after { clip-path: inset(0 50% 0 0); }
 
 /* Hunger is right-to-left, so its half icon keeps the right side. */
 .hunger .food.half::after { clip-path: inset(0 0 0 50%); }
@@ -1785,10 +1830,10 @@ input[type='range'].mc-slider::-moz-range-track {
   background-position: 0 0, var(--u) var(--u);
   color: var(--mc-text-dark);
   box-shadow:
-    inset var(--u3) var(--u3) 0 0 var(--mc-gui-light),
-    inset calc(var(--u3) * -1) calc(var(--u3) * -1) 0 0 var(--mc-gui-dark),
-    0 0 0 var(--u3) var(--mc-outline),
-    0 var(--u4) 0 var(--u3) rgba(0, 0, 0, 0.3);
+    inset var(--u2) var(--u2) 0 0 var(--mc-gui-light),
+    inset calc(var(--u2) * -1) calc(var(--u2) * -1) 0 0 var(--mc-gui-dark),
+    0 0 0 var(--u2) var(--mc-outline),
+    0 var(--u3) 0 var(--u2) rgba(0, 0, 0, 0.3);
   animation: mc-screen-pop 0.12s ease-out;
 }
 
@@ -2274,6 +2319,11 @@ input[type='range'].mc-slider::-moz-range-track {
 .creative-tab canvas,
 .creative-tab img { width: var(--slot-icon); height: var(--slot-icon); }
 
+.recipe-entry canvas,
+.recipe-entry img,
+.trade-row canvas,
+.trade-row img { width: var(--slot-icon); height: var(--slot-icon); }
+
 .creative-tab:hover { background-color: #b8b8b8; }
 
 .creative-tab.active {
@@ -2423,10 +2473,11 @@ input[type='range'].mc-slider::-moz-range-track {
 
 .menu-splash {
   position: absolute;
-  right: calc(var(--gs) * -22px);
-  bottom: calc(var(--gs) * -6px);
+  right: calc(var(--gs) * -26px);
+  bottom: calc(var(--gs) * -5px);
+  max-width: calc(var(--gs) * 120px);
   color: var(--c-yellow);
-  font-size: var(--fs);
+  font-size: var(--fs-sm);
   text-shadow: var(--mc-shadow);
   transform: rotate(-18deg);
   transform-origin: 50% 50%;
@@ -3212,6 +3263,11 @@ input[type='range'].mc-slider::-moz-range-track {
 
 @media (max-width: 460px), (max-height: 380px) {
   :root { --gui-scale-auto: 1; --gui-scale-cap: 2; }
+}
+
+/* Tiny phones: the 182 GUI px hotbar has to fit, so drop to 1x. */
+@media (max-width: 340px) {
+  :root { --gui-scale-auto: 1; --gui-scale-cap: 1; }
 }
 
 /* Narrow layouts: stack the two-column screens and shrink fixed widths. */

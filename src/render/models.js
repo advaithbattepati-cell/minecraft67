@@ -12,9 +12,11 @@
 //    `pos [-4,-8,-4] size [8,8,8]` on pivot [0,24,0] spans y 24..32.
 //    Converting a vanilla ModelRenderer is mechanical:
 //        pivot = [mcX, 24 - mcY, mcZ]      rot = [-mcRotX, mcRotY, -mcRotZ]
-//  * The model faces -Z. Its right-hand side is +X, so a group whose
-//    `rotation.y` equals the entity yaw of a `(-sin y, 0, -cos y)` forward
-//    vector points the model the right way with no extra fudge.
+//  * The model faces -Z, so a group whose `rotation.y` equals the entity yaw
+//    of a `(-sin y, 0, -cos y)` forward vector points it the right way with no
+//    extra fudge. Part naming follows Minecraft's own model files, where the
+//    `right_*` limbs sit at negative X (vanilla models are authored mirrored)
+//    and the uv columns are laid out to match.
 //
 // UV unwrap
 // ---------
@@ -51,8 +53,8 @@ const cos = Math.cos;
 // n = outward normal, u = texture +u direction, v = texture "up" direction.
 // Chosen so that u x v === n, which makes the TL,BL,BR,TR winding front-facing.
 const FACE_DEF = [
-  { n: [1, 0, 0], u: [0, 0, -1], v: [0, 1, 0] },   // +X  character's right
-  { n: [-1, 0, 0], u: [0, 0, 1], v: [0, 1, 0] },   // -X  character's left
+  { n: [1, 0, 0], u: [0, 0, -1], v: [0, 1, 0] },   // +X  "right" uv column
+  { n: [-1, 0, 0], u: [0, 0, 1], v: [0, 1, 0] },   // -X  "left"  uv column
   { n: [0, 1, 0], u: [-1, 0, 0], v: [0, 0, 1] },   // +Y  top
   { n: [0, -1, 0], u: [-1, 0, 0], v: [0, 0, -1] }, // -Y  bottom
   { n: [0, 0, -1], u: [-1, 0, 0], v: [0, 1, 0] },  // -Z  front
@@ -684,11 +686,11 @@ defineModel('zombie_villager', {
 defineModel('witch', {
   skin: 'witch',
   parts: villagerParts({
-    hat: P('hat', 0, 8, 0, [
-      bxu(-5, -12, -5, 10, 2, 10, 0, 32, 8, 2, 8),
-      bxu(-4, -15, -4, 8, 3, 8, 0, 42, 8, 3, 8),
-      bxu(-3, -19, -3, 6, 4, 6, 0, 47, 6, 4, 6),
-      bxu(-2, -22, -2, 3, 3, 3, 0, 54, 3, 3, 3),
+    hat: P('hat', 0, 10, 0, [
+      bxu(-5, 0, -5, 10, 2, 10, 0, 32, 10, 2, 10),
+      bxu(-4, -3, -4, 8, 3, 8, 0, 32, 8, 3, 8),
+      bxu(-3, -6, -3, 6, 3, 6, 0, 32, 6, 3, 6),
+      bxu(-1.5, -9, -1.5, 3, 3, 3, 0, 32, 3, 3, 3),
     ], { rot: [0, 0, 0.06] }),
   }),
   animate: (p, e, t) => {
@@ -860,7 +862,7 @@ defineModel('sheep', {
   },
 });
 defineModel('goat', {
-  skin: 'goat', baby: QUAD_BABY,
+  skin: 'goat', scale: 0.78, baby: QUAD_BABY,
   parts: quadrupedParts({
     headY: 20, headZ: -8, headW: 6, headH: 7, headD: 7, bodyY: 19, bodyW: 9, bodyH: 16, bodyD: 12,
     legH: 12, legY: 12, legW: 3,
@@ -878,7 +880,7 @@ defineModel('goat', {
   },
 });
 defineModel('polar_bear', {
-  skin: 'polar_bear', scale: 1.2, baby: QUAD_BABY,
+  skin: 'polar_bear', baby: QUAD_BABY,
   parts: quadrupedParts({
     headY: 20, headZ: -12, headW: 8, headH: 8, headD: 8, bodyY: 20, bodyW: 14, bodyH: 22, bodyD: 11,
     legH: 12, legY: 12, legW: 5, legX: 4, legFrontZ: -8, legBackZ: 9,
@@ -901,7 +903,7 @@ defineModel('polar_bear', {
   },
 });
 defineModel('panda', {
-  skin: 'panda', scale: 1.1, baby: QUAD_BABY,
+  skin: 'panda', baby: QUAD_BABY,
   parts: quadrupedParts({
     headY: 15, headZ: -10, headW: 10, headH: 10, headD: 9, bodyY: 18, bodyW: 13, bodyH: 20, bodyD: 12,
     legH: 9, legY: 9, legW: 5, legX: 4, legFrontZ: -6, legBackZ: 8,
@@ -923,7 +925,7 @@ defineModel('panda', {
   },
 });
 defineModel('hoglin', {
-  skin: 'hoglin', scale: 1.15, baby: QUAD_BABY,
+  skin: 'hoglin', baby: QUAD_BABY,
   parts: quadrupedParts({
     headY: 16, headZ: -12, headW: 9, headH: 9, headD: 9, bodyY: 20, bodyW: 14, bodyH: 24, bodyD: 12,
     legH: 12, legY: 12, legW: 5, legX: 5, legFrontZ: -7, legBackZ: 10,
@@ -939,7 +941,7 @@ defineModel('hoglin', {
     if (t.swing > 0 && p.head) p.head.rotation.x += sin(t.swing * PI) * 0.8;
   },
 });
-defineModel('zoglin', { skin: 'zoglin', scale: 1.15, baby: QUAD_BABY, parts: MODELS.hoglin.parts, animate: MODELS.hoglin.animate });
+defineModel('zoglin', { skin: 'zoglin', baby: QUAD_BABY, parts: MODELS.hoglin.parts, animate: MODELS.hoglin.animate });
 defineModel('strider', {
   skin: 'strider', baby: QUAD_BABY,
   parts: [
@@ -962,16 +964,16 @@ defineModel('strider', {
   },
 });
 defineModel('camel', {
-  skin: 'camel', scale: 1.1, baby: QUAD_BABY,
+  skin: 'camel', baby: QUAD_BABY,
   parts: quadrupedParts({
-    headY: 34, headZ: -12, headW: 7, headH: 8, headD: 12, bodyY: 26, bodyW: 12, bodyH: 26, bodyD: 14,
+    headY: 32, headZ: -12, headW: 7, headH: 8, headD: 12, bodyY: 26, bodyW: 12, bodyH: 26, bodyD: 14,
     legH: 21, legY: 21, legW: 4, legX: 4, legFrontZ: -8, legBackZ: 10,
     headExtra: [
       P('right_ear', -3, 4, 2, [bxu(-2, -1, -1, 2, 3, 1, 0, 0, 2, 3, 1)]),
       P('left_ear', 3, 4, 2, [bxu(0, -1, -1, 2, 3, 1, 0, 0, 2, 3, 1)]),
     ],
     bodyExtra: [P('hump', 0, 0, 0, [bxu(-4, -14, -5, 8, 5, 10, 28, 8, 10, 16, 8)])],
-    extra: [P('neck', 0, 26, -8, [bxu(-3, -14, -3, 6, 16, 6, 0, 16, 4, 12, 4)], { rot: [-0.2, 0, 0] })],
+    extra: [P('neck', 0, 26, -8, [bxu(-3, -12, -3, 6, 14, 6, 0, 16, 4, 12, 4)], { rot: [-0.2, 0, 0] })],
   }),
   animate: (p, e, t) => {
     animQuadruped(p, e, t);
@@ -986,7 +988,7 @@ defineModel('camel', {
   },
 });
 defineModel('sniffer', {
-  skin: 'sniffer', scale: 1.2, baby: QUAD_BABY,
+  skin: 'sniffer', baby: QUAD_BABY,
   parts: quadrupedParts({
     headY: 20, headZ: -14, headW: 10, headH: 10, headD: 12, bodyY: 22, bodyW: 16, bodyH: 30, bodyD: 16,
     legH: 12, legY: 12, legW: 5, legX: 6, legFrontZ: -8, legBackZ: 12,
@@ -1111,8 +1113,10 @@ function felineParts(o) {
       P('snout', 0, -1, -3, [bxu(-1, -1, -2, 2, 2, 2, 0, 0, 2, 2, 2)]),
     ],
     extra: [
-      P('tail', 0, 10, 7, [bxu(-0.5, 0, -0.5, 1, 8, 1, 0, 16, 4, 12, 4)], { rot: [0.9, 0, 0] }),
-      P('tail_tip', 0, -8, 0, [bxu(-0.5, 0, -0.5, 1, 6, 1, 0, 16, 4, 12, 4)], { rot: [0.4, 0, 0] }),
+      P('tail', 0, 10, 7, [bxu(-0.5, 0, -0.5, 1, 8, 1, 0, 16, 4, 12, 4)], {
+        rot: [0.9, 0, 0],
+        children: [P('tail_tip', 0, -8, 0, [bxu(-0.5, 0, -0.5, 1, 6, 1, 0, 16, 4, 12, 4)], { rot: [0.4, 0, 0] })],
+      }),
     ],
   });
 }
@@ -1165,7 +1169,7 @@ defineModel('fox', {
 });
 
 defineModel('rabbit', {
-  skin: 'rabbit', baby: QUAD_BABY,
+  skin: 'rabbit', scale: 0.75, baby: QUAD_BABY,
   parts: quadrupedParts({
     headY: 8, headZ: -4, headW: 5, headH: 4, headD: 5,
     bodyY: 6, bodyZ: 1, bodyW: 6, bodyH: 10, bodyD: 5,
@@ -1198,27 +1202,27 @@ function horseParts(o) {
   o = o || {};
   const ear = o.longEars ? 7 : 3;
   return [
-    P('body', 0, 18, 0, [bxu(-5, -11, -11, 10, 22, 10, 28, 8, 10, 16, 8)], {
+    P('body', 0, 14, 0, [bxu(-5, -11, -4, 10, 22, 10, 28, 8, 10, 16, 8)], {
       rot: [-HALF_PI, 0, 0],
       children: o.chest ? [
         P('right_chest', -8.5, 0, 3, [bxu(-3, -3, -4, 3, 8, 8, 28, 8, 10, 16, 8)]),
         P('left_chest', 8.5, 0, 3, [bxu(0, -3, -4, 3, 8, 8, 28, 8, 10, 16, 8)]),
       ] : [],
     }),
-    P('neck', 0, 22, -9, [bxu(-2, -16, -2, 4, 16, 9, 0, 16, 4, 12, 4)], {
-      rot: [-0.6, 0, 0],
+    P('neck', 0, 19, -6, [bxu(-2, -10, -3, 4, 10, 6, 0, 16, 4, 12, 4)], {
+      rot: [-0.55, 0, 0],
       children: [
-        P('head', 0, 16, -1, [bxu(-2.5, -6, -11, 5, 7, 11, 0, 0, 8, 8, 8)], {
+        P('head', 0, 10, -2, [bxu(-2.5, -3, -9, 5, 7, 9, 0, 0, 8, 8, 8)], {
           children: [
-            P('mane', 0, 0, 2, [bxu(-1, -6, 0, 2, 16, 4, 0, 16, 4, 12, 4)]),
-            P('right_ear', -2, 6, -8, [bxu(-1, -ear, -1, 2, ear, 2, 0, 0, 2, 3, 2)], { rot: [0, 0, -0.2] }),
-            P('left_ear', 2, 6, -8, [bxu(-1, -ear, -1, 2, ear, 2, 0, 0, 2, 3, 2)], { rot: [0, 0, 0.2] }),
-            P('muzzle', 0, -2, -11, [bxu(-2, 0, -2, 4, 5, 3, 0, 0, 4, 5, 3)]),
+            P('mane', 0, 0, 1, [bxu(-1, -2, -1, 2, 12, 4, 0, 16, 4, 12, 4)]),
+            P('right_ear', -2, 3, -6, [bxu(-1, -ear, -1, 2, ear, 2, 0, 0, 2, 3, 2)], { rot: [0, 0, -0.2] }),
+            P('left_ear', 2, 3, -6, [bxu(-1, -ear, -1, 2, ear, 2, 0, 0, 2, 3, 2)], { rot: [0, 0, 0.2] }),
+            P('muzzle', 0, -1, -9, [bxu(-2, 0, -1.5, 4, 4, 3, 0, 0, 4, 4, 3)]),
           ],
         }),
       ],
     }),
-    P('tail', 0, 21, 10, [bxu(-1.5, 0, -1, 3, 14, 4, 0, 16, 4, 12, 4)], { rot: [0.9, 0, 0] }),
+    P('tail', 0, 19, 10, [bxu(-1.5, 0, -1, 3, 12, 4, 0, 16, 4, 12, 4)], { rot: [0.9, 0, 0] }),
     P('right_front_leg', -4, 14, -7, [bxu(-2, 0, -2, 4, 9, 4, 0, 16, 4, 12, 4)], {
       children: [P('right_front_shin', 0, -9, 0, [bxu(-1.5, 0, -1.5, 3, 5, 3, 0, 16, 4, 12, 4)])],
     }),
@@ -1270,22 +1274,22 @@ defineModel('skeleton_horse', { skin: 'skeleton_horse', baby: QUAD_BABY, parts: 
 defineModel('zombie_horse', { skin: 'zombie_horse', baby: QUAD_BABY, parts: horseParts({}), animate: animHorse });
 
 defineModel('llama', {
-  skin: 'llama', baby: QUAD_BABY,
+  skin: 'llama', scale: 0.88, baby: QUAD_BABY,
   parts: [
-    P('body', 0, 20, 0, [bxu(-6, -14, -8, 12, 18, 10, 28, 8, 10, 16, 8)], {
+    P('body', 0, 16, 0, [bxu(-6, -9, -5, 12, 18, 10, 28, 8, 10, 16, 8)], {
       rot: [-HALF_PI, 0, 0],
       children: [
-        P('right_chest', -8.5, -2, 3, [bxu(-3, -3, -4, 3, 8, 8, 28, 8, 10, 16, 8)], { visible: false }),
-        P('left_chest', 8.5, -2, 3, [bxu(0, -3, -4, 3, 8, 8, 28, 8, 10, 16, 8)], { visible: false }),
+        P('right_chest', -8.5, 0, 2, [bxu(-3, -4, -4, 3, 8, 8, 28, 8, 10, 16, 8)], { visible: false }),
+        P('left_chest', 8.5, 0, 2, [bxu(0, -4, -4, 3, 8, 8, 28, 8, 10, 16, 8)], { visible: false }),
       ],
     }),
-    P('neck', 0, 22, -6, [bxu(-2, -16, -4, 4, 16, 9, 0, 16, 4, 12, 4)], {
-      rot: [-0.25, 0, 0],
+    P('neck', 0, 19, -6, [bxu(-2, -11, -3, 4, 11, 6, 0, 16, 4, 12, 4)], {
+      rot: [-0.15, 0, 0],
       children: [
-        P('head', 0, 16, -2, [bxu(-2, -6, -8, 4, 8, 9, 0, 0, 8, 8, 8)], {
+        P('head', 0, 11, -1, [bxu(-2, -4, -8, 4, 7, 9, 0, 0, 8, 8, 8)], {
           children: [
-            P('right_ear', -2, 6, -3, [bxu(-1, -5, -1, 2, 5, 1, 0, 0, 2, 5, 1)], { rot: [0, 0, -0.25] }),
-            P('left_ear', 2, 6, -3, [bxu(-1, -5, -1, 2, 5, 1, 0, 0, 2, 5, 1)], { rot: [0, 0, 0.25] }),
+            P('right_ear', -2, 3, -3, [bxu(-1, -5, -1, 2, 5, 1, 0, 0, 2, 5, 1)], { rot: [0, 0, -0.25] }),
+            P('left_ear', 2, 3, -3, [bxu(-1, -5, -1, 2, 5, 1, 0, 0, 2, 5, 1)], { rot: [0, 0, 0.25] }),
           ],
         }),
       ],
@@ -1307,7 +1311,7 @@ defineModel('llama', {
     if (p.left_ear) p.left_ear.rotation.z = 0.25 + ear;
   },
 });
-defineModel('trader_llama', { skin: 'trader_llama', baby: QUAD_BABY, parts: MODELS.llama.parts, animate: MODELS.llama.animate });
+defineModel('trader_llama', { skin: 'trader_llama', scale: 0.88, baby: QUAD_BABY, parts: MODELS.llama.parts, animate: MODELS.llama.animate });
 
 defineModel('turtle', {
   skin: 'turtle', baby: QUAD_BABY,
@@ -1497,7 +1501,7 @@ defineModel('parrot', {
 });
 
 defineModel('bat', {
-  skin: 'bat',
+  skin: 'bat', scale: 0.5,
   parts: [
     P('head', 0, 16, 0, [bx(-3, -3, -3, 6, 6, 6, 0, 0)], {
       children: [
@@ -1534,7 +1538,7 @@ defineModel('bat', {
 });
 
 defineModel('bee', {
-  skin: 'bee',
+  skin: 'bee', scale: 0.85,
   parts: [
     P('body', 0, 5, 0, [bx(-3.5, -4, -5, 7, 7, 10, 0, 0)], {
       children: [
@@ -1618,10 +1622,10 @@ defineModel('endermite', {
 // ===========================================================================
 
 function squidParts(tentLen) {
-  const parts = [P('body', 0, 12, 0, [bxu(-6, -8, -6, 12, 16, 12, 0, 0, 12, 16, 12)])];
+  const parts = [P('body', 0, 16, 0, [bxu(-6, -8, -6, 12, 16, 12, 0, 0, 12, 16, 12)])];
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * PI * 2;
-    parts.push(P('tentacle' + i, cos(a) * 5, 4, sin(a) * 5,
+    parts.push(P('tentacle' + i, cos(a) * 5, 9, sin(a) * 5,
       [bxu(-1, 0, -1, 2, tentLen, 2, 48, 0, 2, 18, 2)],
       { rot: [0, -a, 0] }));
   }
@@ -1644,8 +1648,8 @@ function animSquid(p, e, t) {
     p.body.position.y += sin(t.age * 0.18) * 0.6 * S;
   }
 }
-defineModel('squid', { skin: 'squid', scale: 0.62, parts: squidParts(16), animate: animSquid });
-defineModel('glow_squid', { skin: 'glow_squid', scale: 0.62, parts: squidParts(16), animate: animSquid });
+defineModel('squid', { skin: 'squid', scale: 0.62, parts: squidParts(12), animate: animSquid });
+defineModel('glow_squid', { skin: 'glow_squid', scale: 0.62, parts: squidParts(12), animate: animSquid });
 
 /** Cod-shaped fish: one body, a swinging tail fin and small side fins. */
 function fishParts(o) {
@@ -1739,7 +1743,7 @@ defineModel('pufferfish', {
   },
 });
 defineModel('dolphin', {
-  skin: 'dolphin',
+  skin: 'dolphin', scale: 0.6,
   parts: [
     P('body', 0, 8, 0, [bxu(-4, -4, -8, 8, 7, 13, 0, 0, 8, 7, 13)], {
       children: [
@@ -1909,7 +1913,7 @@ defineModel('spider', { skin: 'spider', parts: spiderParts(), animate: animSpide
 defineModel('cave_spider', { skin: 'cave_spider', scale: 0.7, parts: spiderParts(), animate: animSpider });
 
 defineModel('enderman', {
-  skin: 'enderman',
+  skin: 'enderman', scale: 0.92,
   parts: [
     P('head', 0, 42, 0, [bx(-4, -8, -4, 8, 8, 8, 0, 0)], {
       children: [
@@ -2021,11 +2025,11 @@ defineModel('blaze', {
 defineModel('ghast', {
   skin: 'ghast', scale: 2.2,
   parts: (() => {
-    const parts = [P('body', 0, 12, 0, [bx(-8, -8, -8, 16, 16, 16, 0, 0)])];
+    const parts = [P('body', 0, 20, 0, [bx(-8, -8, -8, 16, 16, 16, 0, 0)])];
     // Nine tentacles in a 3x3 grid under the body, each a different length.
     for (let i = 0; i < 9; i++) {
       const gx = (i % 3) - 1, gz = ((i / 3) | 0) - 1;
-      parts.push(P('tentacle' + i, gx * 5, 4, gz * 5,
+      parts.push(P('tentacle' + i, gx * 5, 12, gz * 5,
         [bxu(-1, 0, -1, 2, 9 + (i % 3) * 2, 2, 0, 0, 2, 9, 2)]));
     }
     return parts;
@@ -2052,9 +2056,9 @@ defineModel('ghast', {
 defineModel('shulker', {
   skin: 'shulker',
   parts: [
-    P('base', 0, 0, 0, [bxu(-8, 0, -8, 16, 8, 16, 0, 28, 8, 8, 8)]),
-    P('lid', 0, 8, 0, [bxu(-8, 0, -8, 16, 12, 16, 0, 0, 8, 8, 8)]),
-    P('head', 0, 8, 0, [bxu(-3, 0, -3, 6, 6, 6, 0, 52, 6, 6, 6)]),
+    P('base', 0, 0, 0, [bxu(-8, -8, -8, 16, 8, 16, 0, 28, 8, 8, 8)]),
+    P('lid', 0, 8, 0, [bxu(-8, -8, -8, 16, 12, 16, 0, 0, 8, 8, 8)]),
+    P('head', 0, 8, 0, [bxu(-3, -4, -3, 6, 6, 6, 0, 52, 6, 6, 6)]),
   ],
   animate: (p, e, t) => {
     const peek = clamp(e.peek !== undefined ? e.peek : (e.target ? 0.6 : 0.05), 0, 1);
@@ -2146,7 +2150,7 @@ defineModel('allay', {
 });
 
 defineModel('warden', {
-  skin: 'warden', scale: 1.05,
+  skin: 'warden', scale: 0.95,
   parts: [
     P('body', 0, 13, 0, [bxu(-9, -21, -5.5, 18, 21, 11, 16, 16, 8, 12, 4)], {
       children: [
@@ -2258,8 +2262,8 @@ defineModel('snow_golem', {
     P('head', 0, 24, 0, [bxu(-4, -4, -4, 8, 8, 8, 0, 0, 8, 8, 8)], {
       children: [P('hat', 0, 0, 0, [bxu(-4, -4, -4, 8, 8, 8, 32, 0, 8, 8, 8, 0.45)], { alpha: true })],
     }),
-    P('right_arm', -5, 20, 0, [bxu(-12, -1, -1, 12, 2, 2, 40, 16, 4, 12, 4)], { rot: [0, 0, -0.35] }),
-    P('left_arm', 5, 20, 0, [bxu(0, -1, -1, 12, 2, 2, 40, 16, 4, 12, 4)], { rot: [0, 0, 0.35] }),
+    P('right_arm', -5, 20, 0, [bxu(-9, -1, -1, 9, 2, 2, 40, 16, 4, 12, 4)], { rot: [0, 0, -0.35] }),
+    P('left_arm', 5, 20, 0, [bxu(0, -1, -1, 9, 2, 2, 40, 16, 4, 12, 4)], { rot: [0, 0, 0.35] }),
   ],
   animate: (p, e, t) => {
     look(p, t);
@@ -2344,3 +2348,353 @@ defineModel('armor_stand', {
     if (t.hurt > 0 && p.body) p.body.rotation.z = sin(t.age * 1.6) * 0.12 * t.hurt;
   },
 });
+
+// ===========================================================================
+// Bosses
+// ===========================================================================
+
+defineModel('ender_dragon', {
+  skin: 'ender_dragon',
+  parts: [
+    P('body', 0, 24, 0, [bxu(-12, -12, -16, 24, 24, 40, 0, 0, 16, 16, 16)], {
+      children: [
+        P('back_spikes', 0, 0, 0, [bxu(-1, -16, -14, 2, 4, 36, 0, 0, 2, 4, 16)]),
+      ],
+    }),
+    P('neck0', 0, 26, -16, [bxu(-5, -5, -10, 10, 10, 11, 0, 0, 10, 10, 11)], {
+      children: [
+        P('neck1', 0, 0, -10, [bxu(-4.5, -4.5, -10, 9, 9, 11, 0, 0, 10, 10, 11)], {
+          children: [
+            P('neck2', 0, 0, -10, [bxu(-4, -4, -10, 8, 8, 11, 0, 0, 10, 10, 11)], {
+              children: [
+                P('head', 0, 0, -10, [bxu(-6, -6, -14, 12, 10, 16, 0, 0, 16, 16, 16)], {
+                  children: [
+                    P('jaw', 0, -4, -6, [bxu(-6, 0, -8, 12, 4, 8, 0, 0, 12, 4, 8)]),
+                    P('right_head_horn', -6, 4, -6, [bxu(-2, -6, -2, 3, 6, 3, 0, 0, 3, 6, 3)], { rot: [-0.4, 0, -0.5] }),
+                    P('left_head_horn', 6, 4, -6, [bxu(-1, -6, -2, 3, 6, 3, 0, 0, 3, 6, 3)], { rot: [-0.4, 0, 0.5] }),
+                    P('right_eye', 0, 0, 0, [bxu(-5.5, 2, -12.5, 3, 2, 1, 0, 0, 3, 2, 1)], { bright: true }),
+                    P('left_eye', 0, 0, 0, [bxu(2.5, 2, -12.5, 3, 2, 1, 0, 0, 3, 2, 1)], { bright: true }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
+    }),
+    P('right_wing', -11, 30, -4, [bxu(-44, -2, -6, 44, 4, 12, 0, 0, 16, 4, 12)], {
+      children: [P('right_wing_tip', -44, 0, 0, [bxu(-40, -1, -8, 40, 2, 16, 0, 0, 16, 2, 16)], { rot: [0, 0, 0.2] })],
+    }),
+    P('left_wing', 11, 30, -4, [bxu(0, -2, -6, 44, 4, 12, 0, 0, 16, 4, 12)], {
+      children: [P('left_wing_tip', 44, 0, 0, [bxu(0, -1, -8, 40, 2, 16, 0, 0, 16, 2, 16)], { rot: [0, 0, -0.2] })],
+    }),
+    P('tail0', 0, 24, 24, [bxu(-5, -5, 0, 10, 10, 12, 0, 0, 10, 10, 12)], {
+      children: [
+        P('tail1', 0, 0, 12, [bxu(-4, -4, 0, 8, 8, 12, 0, 0, 10, 10, 12)], {
+          children: [
+            P('tail2', 0, 0, 12, [bxu(-3, -3, 0, 6, 6, 12, 0, 0, 10, 10, 12)], {
+              children: [
+                P('tail3', 0, 0, 12, [bxu(-2, -2, 0, 4, 4, 14, 0, 0, 10, 10, 12)]),
+              ],
+            }),
+          ],
+        }),
+      ],
+    }),
+    P('right_front_leg', -12, 16, -8, [bxu(-4, 0, -4, 8, 16, 8, 0, 0, 8, 16, 8)], {
+      children: [P('right_front_foot', 0, -16, 0, [bxu(-3, 0, -8, 6, 4, 12, 0, 0, 6, 4, 12)])],
+    }),
+    P('left_front_leg', 12, 16, -8, [bxu(-4, 0, -4, 8, 16, 8, 0, 0, 8, 16, 8)], {
+      children: [P('left_front_foot', 0, -16, 0, [bxu(-3, 0, -8, 6, 4, 12, 0, 0, 6, 4, 12)])],
+    }),
+    P('right_hind_leg', -14, 18, 14, [bxu(-5, 0, -5, 10, 18, 10, 0, 0, 10, 18, 10)], {
+      children: [P('right_hind_foot', 0, -18, 0, [bxu(-4, 0, -10, 8, 4, 16, 0, 0, 8, 4, 16)])],
+    }),
+    P('left_hind_leg', 14, 18, 14, [bxu(-5, 0, -5, 10, 18, 10, 0, 0, 10, 18, 10)], {
+      children: [P('left_hind_foot', 0, -18, 0, [bxu(-4, 0, -10, 8, 4, 16, 0, 0, 8, 4, 16)])],
+    }),
+  ],
+  animate: (p, e, t) => {
+    // Wings beat slowly; everything else lags behind them on a shared phase.
+    const beat = sin(t.age * 0.09);
+    const beat2 = sin(t.age * 0.09 - 0.7);
+    if (p.right_wing) { p.right_wing.rotation.z = -0.15 - beat * 0.42; p.right_wing.rotation.y = 0.15 + beat * 0.1; }
+    if (p.left_wing) { p.left_wing.rotation.z = 0.15 + beat * 0.42; p.left_wing.rotation.y = -0.15 - beat * 0.1; }
+    if (p.right_wing_tip) p.right_wing_tip.rotation.z = 0.2 - beat2 * 0.5;
+    if (p.left_wing_tip) p.left_wing_tip.rotation.z = -0.2 + beat2 * 0.5;
+
+    // Neck and tail read as one spline: each joint repeats the previous
+    // joint's motion a fixed number of ticks later.
+    const lag = 0.55;
+    const swayY = e.turn !== undefined ? e.turn : sin(t.age * 0.035) * 0.5;
+    for (let i = 0; i < 3; i++) {
+      const n = p['neck' + i];
+      if (!n) continue;
+      const ph = t.age * 0.06 - i * lag;
+      n.rotation.x = sin(ph) * 0.08 - 0.05 + t.headPitch * 0.12;
+      n.rotation.y = sin(ph * 0.7) * 0.12 + swayY * 0.18;
+    }
+    if (p.head) {
+      p.head.rotation.x = t.headPitch * 0.5 + sin(t.age * 0.06 - 3 * lag) * 0.1;
+      p.head.rotation.y = t.headYaw * 0.5;
+    }
+    if (p.jaw) {
+      const open = e.breathing || e.roaring ? 0.5 : 0.06;
+      p.jaw.rotation.x = -(open + Math.abs(sin(t.age * 0.08)) * 0.08);
+    }
+    for (let i = 0; i < 4; i++) {
+      const tail = p['tail' + i];
+      if (!tail) continue;
+      const ph = t.age * 0.06 - (i + 1) * lag;
+      tail.rotation.y = sin(ph) * 0.18 - swayY * 0.15;
+      tail.rotation.x = sin(ph * 0.8) * 0.06;
+    }
+    const gallop = t.onGround ? sin(t.limbSwing * 0.6662) * 0.8 * t.limbSwingAmount : 0;
+    const tuck = t.onGround ? 0 : 0.8;
+    if (p.right_front_leg) p.right_front_leg.rotation.x = gallop + tuck;
+    if (p.left_front_leg) p.left_front_leg.rotation.x = -gallop + tuck;
+    if (p.right_hind_leg) p.right_hind_leg.rotation.x = -gallop + tuck * 0.6;
+    if (p.left_hind_leg) p.left_hind_leg.rotation.x = gallop + tuck * 0.6;
+    for (const k of ['right_front_foot', 'left_front_foot', 'right_hind_foot', 'left_hind_foot']) {
+      if (p[k]) p[k].rotation.x = -tuck * 0.8;
+    }
+    if (p.body) p.body.position.y += beat * 1.5 * S;
+    const dying = clamp((e.deathTicks || 0) / 200, 0, 1);
+    if (dying > 0 && p.body) p.body.rotation.z = dying * 0.6;
+  },
+});
+
+defineModel('wither', {
+  skin: 'wither', scale: 1.35,
+  parts: [
+    P('spine_top', 0, 40, 0, [bxu(-10, 0, -1.5, 20, 3, 3, 0, 16, 20, 3, 3)]),
+    P('spine_mid', 0, 40, 0, [bxu(-1.5, 3, -1.5, 3, 10, 3, 0, 22, 3, 10, 3)], {
+      children: [
+        P('rib0', 0, -3, 0, [bxu(-6, 0, -1, 12, 2, 2, 0, 35, 12, 2, 2)], { rot: [0, 0, 0.3] }),
+        P('rib1', 0, -7, 0, [bxu(-5, 0, -1, 10, 2, 2, 0, 35, 10, 2, 2)], { rot: [0, 0, -0.25] }),
+      ],
+    }),
+    P('tail', 0, 27, 0, [bxu(-1.5, 0, -1.5, 3, 12, 3, 0, 22, 3, 12, 3)], {
+      children: [P('tail_tip', 0, -12, 0, [bxu(-1, 0, -1, 2, 8, 2, 0, 22, 2, 8, 2)])],
+    }),
+    P('head', 0, 44, 0, [bxu(-4, -4, -4, 8, 8, 8, 0, 0, 10, 10, 10)]),
+    P('right_head', -9, 40, 0, [bxu(-3, -3, -3, 6, 6, 6, 0, 22, 6, 6, 6)]),
+    P('left_head', 9, 40, 0, [bxu(-3, -3, -3, 6, 6, 6, 32, 22, 6, 6, 6)]),
+  ],
+  animate: (p, e, t) => {
+    // The three heads track independent targets; the ribcage sways under them.
+    const look0 = e.headTargets && e.headTargets[0];
+    const look1 = e.headTargets && e.headTargets[1];
+    const look2 = e.headTargets && e.headTargets[2];
+    const aim = (part, tgt, idle) => {
+      if (!part) return;
+      if (tgt) {
+        part.rotation.y = clamp(angleDiff(e.yaw || 0, tgt.yaw || 0), -1.4, 1.4);
+        part.rotation.x = clamp(tgt.pitch || 0, -1.2, 1.2);
+      } else {
+        part.rotation.y = sin(t.age * idle[0] + idle[1]) * 0.65;
+        part.rotation.x = sin(t.age * idle[0] * 0.7 + idle[1]) * 0.25;
+      }
+    };
+    aim(p.head, look0, [0.045, 0]);
+    aim(p.right_head, look1, [0.062, 1.7]);
+    aim(p.left_head, look2, [0.053, 3.3]);
+    if (p.head) { p.head.rotation.y += t.headYaw * 0.5; p.head.rotation.x += t.headPitch * 0.5; }
+    const sway = sin(t.age * 0.05);
+    if (p.spine_mid) { p.spine_mid.rotation.z = sway * 0.06; p.spine_mid.rotation.x = sin(t.age * 0.04) * 0.04; }
+    if (p.spine_top) p.spine_top.rotation.z = -sway * 0.04;
+    if (p.rib0) p.rib0.rotation.z = 0.3 + sway * 0.12;
+    if (p.rib1) p.rib1.rotation.z = -0.25 - sway * 0.12;
+    if (p.tail) { p.tail.rotation.x = sin(t.age * 0.06) * 0.12; p.tail.rotation.z = sway * 0.15; }
+    if (p.tail_tip) { p.tail_tip.rotation.x = sin(t.age * 0.06 - 0.8) * 0.2; p.tail_tip.rotation.z = sin(t.age * 0.05 - 0.8) * 0.2; }
+    const hover = sin(t.age * 0.05) * 1.2 * S;
+    for (const k of ['spine_top', 'spine_mid', 'head', 'right_head', 'left_head', 'tail']) {
+      if (p[k]) p[k].position.y += hover;
+    }
+    // Charging up: the heads pull back and the whole skeleton shudders.
+    const charge = clamp((e.invulTicks || 0) / 220, 0, 1);
+    if (charge > 0) {
+      const sh = sin(t.age * 1.7) * 0.05 * charge;
+      if (p.spine_mid) p.spine_mid.rotation.z += sh;
+      if (p.head) p.head.rotation.x -= charge * 0.4;
+      for (const k of ['head', 'right_head', 'left_head']) if (p[k]) p[k].scale.setScalar(1 + charge * 0.15);
+    }
+  },
+});
+
+// ===========================================================================
+// Vehicles and billboards
+// ===========================================================================
+
+defineModel('boat', {
+  skin: 'boat',
+  parts: [
+    P('bottom', 0, 4, 0, [bxu(-11, 0, -14, 22, 3, 28, 0, 0, 22, 3, 28)]),
+    P('front', 0, 4, -14, [bxu(-11, -6, 0, 22, 6, 2, 0, 0, 22, 6, 2)], { rot: [0.3, 0, 0] }),
+    P('back', 0, 4, 12, [bxu(-11, -6, 0, 22, 6, 2, 0, 0, 22, 6, 2)], { rot: [-0.3, 0, 0] }),
+    P('right_side', -11, 4, 0, [bxu(0, -6, -13, 2, 6, 26, 0, 0, 2, 6, 26)], { rot: [0, 0, -0.15] }),
+    P('left_side', 11, 4, 0, [bxu(-2, -6, -13, 2, 6, 26, 0, 0, 2, 6, 26)], { rot: [0, 0, 0.15] }),
+    P('right_paddle', -11, 9, -2, [bxu(-10, -1, -1, 10, 2, 2, 0, 0, 10, 2, 2)], { rot: [0, 0.4, -0.35] }),
+    P('left_paddle', 11, 9, 2, [bxu(0, -1, -1, 10, 2, 2, 0, 0, 10, 2, 2)], { rot: [0, -0.4, 0.35] }),
+    P('chest', 0, 10, 4, [bxu(-6, -6, -6, 12, 12, 12, 0, 0, 12, 12, 12)], { visible: false }),
+  ],
+  animate: (p, e, t) => {
+    const row = e.rowing !== undefined ? e.rowing : t.speed * 2;
+    const a = sin(t.age * 0.25) * clamp(row, 0, 1);
+    if (p.right_paddle) { p.right_paddle.rotation.x = a; p.right_paddle.rotation.z = -0.35 - Math.abs(a) * 0.2; }
+    if (p.left_paddle) { p.left_paddle.rotation.x = -a; p.left_paddle.rotation.z = 0.35 + Math.abs(a) * 0.2; }
+    // Bobbing on the swell.
+    const bob = sin(t.age * 0.08) * 0.6 * S;
+    for (const k of ['bottom', 'front', 'back', 'right_side', 'left_side']) if (p[k]) p[k].position.y += bob;
+    if (p.chest) p.chest.visible = !!(e.chested || e.hasChest);
+  },
+});
+defineModel('chest_boat', {
+  skin: 'boat', parts: MODELS.boat.parts,
+  animate: (p, e, t) => { MODELS.boat.animate(p, e, t); if (p.chest) p.chest.visible = true; },
+});
+defineModel('raft', { skin: 'raft', parts: MODELS.boat.parts, animate: MODELS.boat.animate });
+
+defineModel('minecart', {
+  skin: 'minecart',
+  parts: [
+    P('bottom', 0, 4, 0, [bxu(-8, 0, -10, 16, 2, 20, 0, 0, 16, 2, 20)]),
+    P('front', 0, 4, -10, [bxu(-8, -8, 0, 16, 8, 2, 0, 0, 16, 8, 2)]),
+    P('back', 0, 4, 8, [bxu(-8, -8, 0, 16, 8, 2, 0, 0, 16, 8, 2)]),
+    P('right_side', -8, 4, 0, [bxu(0, -8, -8, 2, 8, 16, 0, 0, 2, 8, 16)]),
+    P('left_side', 8, 4, 0, [bxu(-2, -8, -8, 2, 8, 16, 0, 0, 2, 8, 16)]),
+    P('contents', 0, 6, 0, [bxu(-6, -12, -6, 12, 12, 12, 0, 0, 12, 12, 12)], { visible: false }),
+  ],
+  animate: (p, e, t) => {
+    // Rocks slightly with speed and tilts on slopes.
+    const rock = sin(t.age * 0.4) * clamp(t.speed * 0.06, 0, 0.06);
+    if (p.bottom) p.bottom.rotation.z = rock;
+    for (const k of ['front', 'back', 'right_side', 'left_side']) if (p[k]) p[k].rotation.z = rock;
+    if (p.contents) p.contents.visible = !!(e.contents || e.hasContents);
+  },
+});
+
+/** Flat quad used for dropped items and XP orbs; the renderer supplies the map. */
+function billboardParts(size) {
+  return [P('item', 0, size / 2, 0, [bxu(-size / 2, -size / 2, 0, size, size, 0, 0, 0, size, size, 0)], { alpha: true, bright: true })];
+}
+defineModel('item', {
+  skin: 'item', parts: billboardParts(10),
+  animate: (p, e, t) => {
+    if (!p.item) return;
+    p.item.rotation.y = t.age * 0.06;
+    p.item.position.y += sin(t.age * 0.1) * 1.2 * S;
+  },
+});
+defineModel('xp_orb', {
+  skin: 'item', parts: billboardParts(6),
+  animate: (p, e, t) => {
+    if (!p.item) return;
+    p.item.rotation.y = t.age * 0.14;
+    p.item.position.y += sin(t.age * 0.22) * 0.8 * S;
+    p.item.scale.setScalar(0.9 + sin(t.age * 0.3) * 0.1);
+  },
+});
+
+// ===========================================================================
+// Mob -> model resolution
+// ===========================================================================
+
+// Mobs whose model is shared with (or named differently from) another entry.
+const MOB_MODEL = {
+  // humanoids
+  zombie: 'zombie', husk: 'zombie', drowned: 'drowned', zombie_villager: 'zombie_villager',
+  giant: 'zombie', skeleton: 'skeleton', stray: 'stray', bogged: 'bogged',
+  wither_skeleton: 'wither_skeleton', piglin: 'piglin', piglin_brute: 'piglin_brute',
+  zombified_piglin: 'zombified_piglin', villager: 'villager', wandering_trader: 'wandering_trader',
+  witch: 'witch', evoker: 'evoker', vindicator: 'vindicator', pillager: 'pillager',
+  illusioner: 'illusioner', player: 'player', enderman: 'enderman', warden: 'warden',
+  breeze: 'breeze', creaking: 'creaking', vex: 'vex', allay: 'allay',
+  iron_golem: 'iron_golem', snow_golem: 'snow_golem', armor_stand: 'armor_stand',
+  // quadrupeds
+  cow: 'cow', mooshroom: 'mooshroom', brown_mooshroom: 'mooshroom', pig: 'pig', sheep: 'sheep',
+  goat: 'goat', polar_bear: 'polar_bear', panda: 'panda', hoglin: 'hoglin', zoglin: 'zoglin',
+  strider: 'strider', camel: 'camel', sniffer: 'sniffer', armadillo: 'armadillo',
+  ravager: 'ravager', wolf: 'wolf', cat: 'cat', ocelot: 'ocelot', fox: 'fox', rabbit: 'rabbit',
+  horse: 'horse', donkey: 'donkey', mule: 'mule', skeleton_horse: 'skeleton_horse',
+  zombie_horse: 'zombie_horse', llama: 'llama', trader_llama: 'trader_llama',
+  turtle: 'turtle', frog: 'frog', tadpole: 'tadpole', axolotl: 'axolotl',
+  // birds and insects
+  chicken: 'chicken', parrot: 'parrot', bat: 'bat', bee: 'bee',
+  silverfish: 'silverfish', endermite: 'endermite',
+  // aquatic
+  squid: 'squid', glow_squid: 'glow_squid', cod: 'cod', salmon: 'salmon',
+  tropical_fish: 'tropical_fish', pufferfish: 'pufferfish', dolphin: 'dolphin',
+  guardian: 'guardian', elder_guardian: 'elder_guardian',
+  // monsters
+  creeper: 'creeper', spider: 'spider', cave_spider: 'cave_spider', slime: 'slime',
+  magma_cube: 'magma_cube', blaze: 'blaze', ghast: 'ghast', shulker: 'shulker',
+  phantom: 'phantom',
+  // bosses, vehicles, misc
+  ender_dragon: 'ender_dragon', wither: 'wither', boat: 'boat', chest_boat: 'chest_boat',
+  raft: 'raft', minecart: 'minecart', chest_minecart: 'minecart', furnace_minecart: 'minecart',
+  hopper_minecart: 'minecart', tnt_minecart: 'minecart', spawner_minecart: 'minecart',
+  item: 'item', item_entity: 'item', experience_orb: 'xp_orb', xp_orb: 'xp_orb',
+};
+
+// Substring rules applied when a name is not in the table above, so a mob that
+// another module invents still renders as something sensible.
+const MODEL_HINTS = [
+  ['_horse', 'horse'], ['llama', 'llama'], ['spider', 'spider'], ['pufferfish', 'pufferfish'],
+  ['fish', 'cod'], ['squid', 'squid'], ['guardian', 'guardian'], ['golem', 'iron_golem'],
+  ['piglin', 'piglin'], ['skeleton', 'skeleton'], ['zombie', 'zombie'], ['drowned', 'zombie'],
+  ['villager', 'villager'], ['trader', 'villager'], ['illager', 'pillager'], ['pillager', 'pillager'],
+  ['vindicator', 'vindicator'], ['evoker', 'evoker'], ['witch', 'witch'], ['creeper', 'creeper'],
+  ['slime', 'slime'], ['magma', 'magma_cube'], ['blaze', 'blaze'], ['ghast', 'ghast'],
+  ['enderman', 'enderman'], ['endermite', 'endermite'], ['silverfish', 'silverfish'],
+  ['shulker', 'shulker'], ['phantom', 'phantom'], ['bat', 'bat'], ['bee', 'bee'],
+  ['parrot', 'parrot'], ['chicken', 'chicken'], ['rabbit', 'rabbit'], ['turtle', 'turtle'],
+  ['frog', 'frog'], ['tadpole', 'tadpole'], ['axolotl', 'axolotl'], ['dolphin', 'dolphin'],
+  ['wolf', 'wolf'], ['cat', 'cat'], ['ocelot', 'ocelot'], ['fox', 'fox'], ['panda', 'panda'],
+  ['bear', 'polar_bear'], ['hoglin', 'hoglin'], ['strider', 'strider'], ['camel', 'camel'],
+  ['sniffer', 'sniffer'], ['armadillo', 'armadillo'], ['ravager', 'ravager'], ['goat', 'goat'],
+  ['sheep', 'sheep'], ['cow', 'cow'], ['mooshroom', 'mooshroom'], ['pig', 'pig'],
+  ['warden', 'warden'], ['breeze', 'breeze'], ['creaking', 'creaking'], ['vex', 'vex'],
+  ['allay', 'allay'], ['dragon', 'ender_dragon'], ['wither', 'wither'],
+  ['boat', 'boat'], ['minecart', 'minecart'], ['orb', 'xp_orb'], ['item', 'item'],
+  ['stand', 'armor_stand'],
+];
+
+/**
+ * Resolves an entity/mob name to a registered model name. Falls back through
+ * the alias table, then substring hints, then the generic humanoid, so an
+ * unknown mob always renders as something rather than crashing.
+ * @param {string} mobName
+ * @returns {string} a name that is guaranteed to exist in MODELS
+ */
+export function modelForMob(mobName) {
+  if (!mobName) return 'humanoid';
+  const name = String(mobName);
+  if (MODELS[name]) return name;
+  const mapped = MOB_MODEL[name];
+  if (mapped && MODELS[mapped]) return mapped;
+  // Colour/variant suffixes: 'sheep_red', 'cat_black', 'horse_white', ...
+  const cut = name.lastIndexOf('_');
+  if (cut > 0) {
+    const stem = name.slice(0, cut);
+    if (MODELS[stem]) return stem;
+    const stemMapped = MOB_MODEL[stem];
+    if (stemMapped && MODELS[stemMapped]) return stemMapped;
+  }
+  for (let i = 0; i < MODEL_HINTS.length; i++) {
+    if (name.indexOf(MODEL_HINTS[i][0]) >= 0 && MODELS[MODEL_HINTS[i][1]]) return MODEL_HINTS[i][1];
+  }
+  return 'humanoid';
+}
+
+/**
+ * Convenience wrapper for entityrenderer: resolves the model AND the skin for
+ * a mob in one call, honouring a per-entity skin override.
+ * @param {string} mobName
+ * @param {string} [skinOverride] e.g. 'sheep#a12722' for a dyed sheep
+ * @returns {object} a fresh model instance
+ */
+export function buildMobModel(mobName, skinOverride) {
+  const model = modelForMob(mobName);
+  return buildModel(model, skinOverride || mobName);
+}
