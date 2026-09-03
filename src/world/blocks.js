@@ -125,6 +125,7 @@ export function defineBlock(name, props = {}) {
     collision,
     boxes: props.boxes || null,
     // extras used by the mesher / worldgen; harmless to other consumers
+    air: name === 'air' || name === 'cave_air' || name === 'void_air',
     flowTex: props.flowTex || null,
     overlay: props.overlay || null,
     waterlogged: !!props.waterlogged,
@@ -164,8 +165,7 @@ export function blockByName(name) {
 
 /** True for the air family (air, cave air, void air). */
 export function isAir(id) {
-  const d = getBlock(id);
-  return d.model === 'none' && d.collision === 'none' && d.filter === 0 && d.name.endsWith('air');
+  return getBlock(id).air;
 }
 /** True when the block participates in collision. */
 export function isSolid(id) {
@@ -291,12 +291,16 @@ function oreDrops(selfName, item, min = 1, max = 1) {
   };
 }
 
-/** Silk touch drops the block itself, otherwise `item` xN with no fortune bonus. */
-function silkOrItem(selfName, item, min = 1, max = 1, fortuneCap = 0) {
+/**
+ * Silk touch drops the block itself, otherwise `item` xN. Fortune adds 0..level
+ * extra, capped at `cap` (vanilla behaviour for glowstone / melon / sea lantern).
+ */
+function silkOrItem(selfName, item, min = 1, max = 1, cap = 0) {
   return (ctx) => {
     if (ctx && ctx.silkTouch) return [st(selfName)];
     let n = rint(ctx && ctx.rng, min, max);
-    if (fortuneCap) n = Math.min(fortuneCap, n + Math.floor(rnd(ctx && ctx.rng) * ((ctx && ctx.fortune) | 0 ? ((ctx.fortune | 0) + 1) : 1)));
+    const f = ctx ? (ctx.fortune | 0) : 0;
+    if (cap && f > 0) n = Math.min(cap, n + Math.floor(rnd(ctx.rng) * (f + 1)));
     return [st(item, n)];
   };
 }
@@ -522,13 +526,14 @@ function defineColorSet(base, props = {}) {
 function defineOre(name, opts = {}) {
   const {
     item = name, min = 1, max = 1, tier = 0, xp = null, light = 0,
-    hardness = 3, resistance = 3, deepslate = true, fortune = true,
+    hardness = 3, resistance = 3, deepslate = true,
   } = opts;
   const oreName = name + '_ore';
+  // `light` here is the *lit* level (redstone ore); meta bit3 marks it lit.
   const mk = (n, h) => defineBlock(n, {
-    hardness: h, resistance, tool: 'pickaxe', tier, requiresTool: true, light,
-    litLight: light ? light : null, litBit: 8, tex: n, xp,
-    drops: fortune ? oreDrops(n, item, min, max) : silkOrItem(n, item, min, max),
+    hardness: h, resistance, tool: 'pickaxe', tier, requiresTool: true,
+    light: 0, litLight: light || null, litBit: 8, tex: n, xp,
+    drops: oreDrops(n, item, min, max),
     ticksRandomly: !!light, group: 'building',
   });
   mk(oreName, hardness);
@@ -613,13 +618,12 @@ defineStoneSet('andesite', { wall: true });
 defineStoneSet('polished_andesite', {});
 defineStoneSet('cobblestone', { hardness: 2, wall: true });
 defineStoneSet('mossy_cobblestone', { hardness: 2, wall: true });
-defineStoneSet('smooth_stone', { hardness: 2, stairs: false, tex: { top: 'smooth_stone', bottom: 'smooth_stone', side: 'smooth_stone_slab_side' } });
+defineStoneSet('smooth_stone', { hardness: 2, stairs: false });
 defineStoneSet('stone_bricks', { wall: true });
 defineStoneSet('mossy_stone_bricks', { wall: true });
 defineBlock('cracked_stone_bricks', { hardness: 1.5, resistance: 6, tool: 'pickaxe', requiresTool: true });
 defineBlock('chiseled_stone_bricks', { hardness: 1.5, resistance: 6, tool: 'pickaxe', requiresTool: true });
 defineStoneSet('bricks', { hardness: 2, wall: true });
-defineBlock('cobblestone_wall_gate', { model: 'fence_gate', tex: 'cobblestone', hardness: 2, resistance: 6, tool: 'pickaxe', requiresTool: true, opaque: false, filter: 0, renderPass: 'opaque' });
 
 // Deepslate
 defineBlock('deepslate', {
@@ -865,9 +869,9 @@ defineColorSet('glazed_terracotta', () => ({ hardness: 1.4, resistance: 1.4, too
 // 4. Ores and mineral blocks
 // ===========================================================================
 defineOre('coal', { item: 'coal', tier: 0, xp: [0, 2] });
-defineOre('iron', { item: 'raw_iron', tier: 1, fortune: false });
+defineOre('iron', { item: 'raw_iron', tier: 1 });
 defineOre('copper', { item: 'raw_copper', min: 2, max: 3, tier: 1 });
-defineOre('gold', { item: 'raw_gold', tier: 2, fortune: false });
+defineOre('gold', { item: 'raw_gold', tier: 2 });
 defineOre('redstone', { item: 'redstone', min: 4, max: 5, tier: 2, light: 9, xp: [1, 5] });
 defineOre('lapis', { item: 'lapis_lazuli', min: 4, max: 9, tier: 1, xp: [2, 5] });
 defineOre('diamond', { item: 'diamond', tier: 2, xp: [3, 7] });
@@ -941,6 +945,20 @@ defineWoodSet('bamboo', {
 defineBlock('bamboo_mosaic', { sound: 'wood', tool: 'axe', hardness: 2, resistance: 3, flammable: 5, burnTime: 300 });
 defineBlock('bamboo_mosaic_stairs', { sound: 'wood', tool: 'axe', tex: 'bamboo_mosaic', model: 'stairs', hardness: 2, resistance: 3, flammable: 5, burnTime: 300, opaque: false, filter: 0, collision: 'full', renderPass: 'opaque' });
 defineBlock('bamboo_mosaic_slab', { sound: 'wood', tool: 'axe', tex: 'bamboo_mosaic', model: 'slab', hardness: 2, resistance: 3, flammable: 5, burnTime: 150, opaque: false, filter: 0, collision: 'half', renderPass: 'opaque' });
+
+defineBlock('mangrove_roots', {
+  model: 'cube', tex: { top: 'mangrove_roots_top', bottom: 'mangrove_roots_top', side: 'mangrove_roots_side' },
+  hardness: 0.7, resistance: 0.7, tool: 'axe', sound: 'wood', opaque: false, filter: 0,
+  flammable: 5, burnTime: 300, renderPass: 'cutout',
+});
+defineBlock('muddy_mangrove_roots', {
+  model: 'column', tex: { top: 'muddy_mangrove_roots_top', side: 'muddy_mangrove_roots_side' },
+  hardness: 0.7, resistance: 0.7, tool: 'shovel', sound: 'gravel',
+});
+defineBlock('petrified_oak_slab', {
+  model: 'slab', tex: 'oak_planks', hardness: 2, resistance: 6, tool: 'pickaxe',
+  requiresTool: true, opaque: false, filter: 0, collision: 'half', renderPass: 'opaque',
+});
 
 // Azalea leaves live outside the wood sets (no matching log).
 defineBlock('azalea_leaves', {
@@ -1087,7 +1105,6 @@ definePlant('pitcher_plant', { flammable: 30 });
 definePlant('torchflower', { flammable: 30 });
 definePlant('brown_mushroom', { light: 1, ticksRandomly: true, flammable: 0 });
 definePlant('red_mushroom', { ticksRandomly: true, flammable: 0 });
-definePlant('crimson_fungus_planted', { tex: 'crimson_fungus', flammable: 0, drops: 'crimson_fungus', itemName: 'crimson_fungus' });
 
 const FLOWERS = [
   'dandelion', 'poppy', 'blue_orchid', 'allium', 'azure_bluet', 'red_tulip', 'orange_tulip',

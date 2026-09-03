@@ -1,0 +1,3276 @@
+/* ==========================================================================
+   minecraft67 — src/ui/style.css
+   Every pixel of the UI. No external resources: all bevels, borders, icons and
+   patterns are drawn with gradients, box-shadows and clip-paths only.
+
+   ---------------------------------------------------------------------------
+   CLASS INDEX (what hud.js / screens.js / menu.js / chat.js / debug.js target)
+   ---------------------------------------------------------------------------
+   LAYERS      #app #game-canvas #ui-root #hud #screens #chat-layer
+               #debug-layer #menu-layer #toast-layer #boot-screen
+               helpers: .hidden .gone .no-pointer .clickable .selectable
+                        .mc-row .mc-col .mc-spacer .mc-center .mc-kbd
+
+   WIDGETS     .mc-panel (+.dark +.flush)      grey bevelled GUI panel
+               .mc-slot (+.large +.big +.armor +.result +.locked +.highlight)
+               .mc-slot .slot-count .slot-durability > .slot-durability-fill
+               .mc-slot .stack-glint             enchanted shimmer overlay
+               .mc-button (+.primary +.danger +.small +.wide +.icon +.active
+                           +.disabled  and :hover/:active/[disabled])
+               .mc-slider (div or <input type=range>) > .mc-slider-fill
+                           .mc-slider-knob .mc-slider-label   (--fill: 0..1)
+               .mc-toggle (+.on)  > .mc-toggle-knob
+               .mc-input  (+.invalid)            text field
+               .mc-scroll                        scrolling region
+               .mc-tooltip > .mc-tooltip-title .mc-tooltip-line
+                           (+.rarity-common/uncommon/rare/epic)
+               .mc-progress (--value: 0..1) > .mc-progress-fill
+               .mc-tab (+.active +.top +.bottom)
+               .mc-title (+.small +.big)         heading text
+               .mc-list > .mc-list-item (+.selected +.disabled)
+               .mc-label .mc-hint .mc-divider .mc-badge
+
+   HUD         #hud .hotbar > .hotbar-slot (+.selected) , .hotbar-selector
+               .hotbar-item-name .action-bar
+               .hearts > .heart (+.empty +.half +.absorption +.poison
+                                 +.wither +.frozen +.hardcore +.beat)
+               .hunger > .food (+.empty +.half +.hungry)
+               .armor-bar > .armor (+.empty +.half)
+               .air-bar > .bubble (+.pop)
+               .xp-bar > .xp-bar-fill ; .xp-level
+               .crosshair (+.dot +.hit)
+               .boss-bars > .boss-bar > .boss-bar-name
+                            .boss-bar-track > .boss-bar-fill
+                            colours: .pink .blue .red .green .yellow .purple .white
+                            .notched (--notch: 10%)
+               .effect-icons > .effect-icon (+.ambient +.bad)
+                            > .effect-icon-glyph .effect-icon-time
+               .hud-bottom  optional wrapper that un-absolutes the bars
+
+   SCREENS     .screen-overlay (+.blur) > .screen (+.wide +.tall)
+               .screen-title .screen-body .screen-close .screen-footer
+               .slot-grid .inventory-grid .hotbar-grid .chest-grid
+               .crafting-grid .crafting-arrow .armor-slots .offhand-slot
+               .furnace-layout .furnace-arrow (--progress) .furnace-flame (--fuel)
+               .anvil .anvil-plus .anvil-name-field .anvil-cost (+.too-expensive)
+               .enchant-table .enchant-offer (+.disabled) > .enchant-level
+                              .enchant-runes .enchant-lapis .enchant-hint
+               .brewing-stand .brew-arrow (--progress) .brew-bubbles (--fuel)
+               .trading .trade-list .trade-row (+.selected +.locked)
+                        .trade-arrow .villager-level .trade-xp > fill
+               .creative-tabs > .creative-tab (+.active)
+               .recipe-book .recipe-search .recipe-results .recipe-entry (+.locked)
+               .held-stack  (the stack that follows the cursor)
+
+   MENUS       .menu-bg (+.panorama) .menu-vignette
+               .menu-title > .accent ; .menu-splash
+               .menu-buttons .menu-footer .menu-version .menu-copyright
+               .world-list > .world-item (+.selected) > .world-icon
+                             .world-name .world-meta
+               .settings-grid .settings-row .settings-category
+               .keybind-row .keybind-key (+.listening +.conflict)
+               .death-screen > .death-title .death-message .death-score
+
+   CHAT        #chat-layer(+.open) .chat-log > .chat-line (+.fading +.system)
+               .chat-input > .chat-input-field ; .chat-suggestions >
+               .chat-suggestion (+.selected) ; colour classes .mc-c-<name>
+
+   DEBUG       .debug-left .debug-right > .debug-line (+.warn +.bad +.good)
+               .debug-graph .debug-pie
+
+   BOOT        #boot-screen .boot-inner .boot-title .boot-bar .boot-bar-fill
+               .boot-status
+
+   TOUCH       .touch-controls .touch-stick .touch-knob .touch-btn
+               (aliases used by core/input.js: .touch-stick-zone
+                .touch-stick-base .touch-stick-knob)
+
+   FULL-SCREEN FX  .fx-damage .fx-portal .fx-underwater .fx-lava .fx-blind
+                   .fx-freeze .fx-nausea .fx-vignette      (opacity via --fx)
+
+   Everything scales from the single custom property --gui-scale (0 = auto),
+   which src/main.js writes onto <html> when the GUI Scale option changes.
+   ========================================================================== */
+
+/* ==========================================================================
+   1. DESIGN TOKENS
+   ========================================================================== */
+
+:root {
+  /* ---- GUI scale -------------------------------------------------------
+     --gui-scale is the raw setting: 0 means "Auto", 1..4 are explicit.
+     --gs is the resolved multiplier every size in this file is built from.
+     The min()/(1-min()) dance is a branch: --gs-explicit is 0 when the
+     setting is 0 (auto) and 1 otherwise, so exactly one term survives. */
+  --gui-scale: 3;
+  --gui-scale-auto: 3;              /* what "Auto" resolves to (media queries) */
+  --gui-scale-cap: 6;               /* small viewports clamp the scale down */
+  --gs-explicit: min(var(--gui-scale), 1);
+  --gs-raw: calc(var(--gui-scale) * var(--gs-explicit)
+                 + var(--gui-scale-auto) * (1 - var(--gs-explicit)));
+  --gs: clamp(1, min(var(--gs-raw), var(--gui-scale-cap)), 6);
+
+  /* ---- The GUI pixel and its multiples --------------------------------- */
+  --u: calc(var(--gs) * 1px);
+  --u2: calc(var(--gs) * 2px);
+  --u3: calc(var(--gs) * 3px);
+  --u4: calc(var(--gs) * 4px);
+  --u5: calc(var(--gs) * 5px);
+  --u6: calc(var(--gs) * 6px);
+  --u8: calc(var(--gs) * 8px);
+  --u10: calc(var(--gs) * 10px);
+  --u12: calc(var(--gs) * 12px);
+  --u14: calc(var(--gs) * 14px);
+  --u16: calc(var(--gs) * 16px);
+  --u18: calc(var(--gs) * 18px);
+  --u20: calc(var(--gs) * 20px);
+  --u22: calc(var(--gs) * 22px);
+  --u24: calc(var(--gs) * 24px);
+  --u32: calc(var(--gs) * 32px);
+  --un: calc(var(--gs) * -1px);     /* negative one GUI pixel */
+  --un2: calc(var(--gs) * -2px);
+
+  --slot: var(--u18);               /* inventory slot (18x18 GUI px) */
+  --slot-icon: var(--u16);          /* the 16x16 item icon inside it */
+  --slot-gap: 0px;                  /* vanilla slots touch each other */
+  --hotbar-slot: var(--u20);
+  --tile: var(--u16);               /* one "block" of the dirt background */
+
+  /* ---- Type ------------------------------------------------------------
+     Local pixel fonts if the player happens to have one installed, then
+     plain monospace. Never a webfont: no network requests, ever. */
+  --mc-font: 'Minecraft', 'Monocraft', 'Press Start 2P', 'Silkscreen',
+             ui-monospace, 'SFMono-Regular', 'Menlo', 'DejaVu Sans Mono',
+             'Liberation Mono', 'Consolas', 'Courier New', monospace;
+  --fs-xs: calc(var(--gs) * 4.5px);
+  --fs-sm: calc(var(--gs) * 5px);
+  --fs: calc(var(--gs) * 6px);
+  --fs-md: calc(var(--gs) * 7px);
+  --fs-lg: calc(var(--gs) * 8px);
+  --fs-xl: calc(var(--gs) * 12px);
+  --fs-huge: calc(var(--gs) * 18px);
+  --lh: 1.35;
+
+  /* ---- Minecraft GUI greys --------------------------------------------- */
+  --mc-gui: #c6c6c6;                /* panel face */
+  --mc-gui-light: #ffffff;          /* top-left bevel */
+  --mc-gui-soft: #dbdbdb;
+  --mc-gui-dark: #555555;           /* bottom-right bevel */
+  --mc-gui-darker: #373737;
+  --mc-outline: #000000;
+  --mc-slot-bg: #8b8b8b;
+  --mc-slot-dark: #373737;          /* sunken top-left */
+  --mc-slot-light: #ffffff;         /* sunken bottom-right */
+  --mc-slot-hover: rgba(255, 255, 255, 0.46);
+  --mc-slot-locked: rgba(60, 0, 0, 0.45);
+
+  /* ---- Buttons: neutral grey + the green "primary" family --------------- */
+  --mc-btn: #6b6b6b;
+  --mc-btn-hi: #9a9a9a;
+  --mc-btn-lo: #313131;
+  --mc-btn-hover: #7e7e7e;
+  --mc-btn-text: #e6e6e6;
+  --mc-btn-text-hover: #ffffa0;
+  --mc-btn-off: #4a4a4a;
+  --mc-btn-off-text: #7a7a7a;
+
+  --mc-green: #5b8731;
+  --mc-green-hi: #86c04a;
+  --mc-green-lo: #33501b;
+  --mc-green-hover: #6da03a;
+  --mc-green-text: #f2ffe2;
+
+  --mc-red: #9c3a30;
+  --mc-red-hi: #cf5a4a;
+  --mc-red-lo: #521a14;
+  --mc-red-hover: #b4453a;
+
+  /* ---- Dirt background (title / pause screens) -------------------------- */
+  --mc-dirt: #6b4c31;
+  --mc-dirt-dark: #4b3521;
+  --mc-dirt-light: #7f5c3b;
+  --mc-dirt-dim: rgba(0, 0, 0, 0.55);
+
+  /* ---- Text ------------------------------------------------------------- */
+  --mc-text: #ffffff;
+  --mc-text-dim: #a0a0a0;
+  --mc-text-dark: #3f3f3f;          /* labels drawn on grey panels */
+  --mc-shadow-color: rgba(0, 0, 0, 0.72);
+  --mc-shadow: var(--u) var(--u) 0 var(--mc-shadow-color);
+  --mc-shadow-soft: var(--u) var(--u) 0 rgba(0, 0, 0, 0.45);
+  --mc-outline-text:
+    var(--u) 0 0 #000, var(--un) 0 0 #000,
+    0 var(--u) 0 #000, 0 var(--un) 0 #000;
+
+  /* Vanilla chat colour codes (§0-§f) */
+  --c-black: #000000;
+  --c-dark_blue: #0000aa;
+  --c-dark_green: #00aa00;
+  --c-dark_aqua: #00aaaa;
+  --c-dark_red: #aa0000;
+  --c-dark_purple: #aa00aa;
+  --c-gold: #ffaa00;
+  --c-gray: #aaaaaa;
+  --c-dark_gray: #555555;
+  --c-blue: #5555ff;
+  --c-green: #55ff55;
+  --c-aqua: #55ffff;
+  --c-red: #ff5555;
+  --c-light_purple: #ff55ff;
+  --c-yellow: #ffff55;
+  --c-white: #ffffff;
+
+  /* ---- HUD colours ------------------------------------------------------ */
+  --mc-heart: #ff2b2b;
+  --mc-heart-dark: #a01414;
+  --mc-heart-empty: rgba(38, 38, 38, 0.9);
+  --mc-heart-absorption: #ffd83d;
+  --mc-heart-poison: #7d9a2b;
+  --mc-heart-wither: #2b2b2b;
+  --mc-heart-frozen: #62c9ff;
+  --mc-food: #c58b3b;
+  --mc-food-dark: #6d4a1c;
+  --mc-food-empty: rgba(38, 38, 38, 0.9);
+  --mc-armor: #d5d9e0;
+  --mc-armor-empty: rgba(38, 38, 38, 0.9);
+  --mc-air: #93d7ff;
+  --mc-xp: #7ffb2a;
+  --mc-xp-dark: #1d3f0c;
+  --mc-xp-track: #1b1b1b;
+
+  /* ---- Tooltips / overlays ---------------------------------------------- */
+  --mc-tooltip-bg: rgba(16, 0, 16, 0.94);
+  --mc-tooltip-edge-a: #5000ff;
+  --mc-tooltip-edge-b: #28007f;
+  --mc-screen-dim: rgba(12, 12, 14, 0.72);
+  --mc-chat-bg: rgba(0, 0, 0, 0.48);
+  --mc-debug-bg: rgba(0, 0, 0, 0.55);
+
+  /* Layer order */
+  --z-hud: 10;
+  --z-debug: 20;
+  --z-screens: 30;
+  --z-chat: 40;
+  --z-touch: 45;
+  --z-menu: 60;
+  --z-toast: 70;
+  --z-boot: 100;
+
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   2. RESET AND LAYERS
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: #000;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: var(--mc-font);
+  font-size: var(--fs);
+  line-height: var(--lh);
+  color: var(--mc-text);
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  text-rendering: optimizeSpeed;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+  cursor: default;
+}
+
+/* Every raster surface in the UI is pixel art: never smooth it. */
+canvas,
+img,
+.pixel {
+  image-rendering: -moz-crisp-edges;
+  image-rendering: pixelated;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+#game-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  background: #0a0d14;
+}
+
+/* The UI never eats input unless a widget explicitly asks for it. */
+#ui-root {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-hud);
+  pointer-events: none;
+  overflow: hidden;
+  font-family: var(--mc-font);
+  font-size: var(--fs);
+  color: var(--mc-text);
+}
+
+#hud,
+#screens,
+#chat-layer,
+#debug-layer,
+#menu-layer,
+#toast-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#hud { z-index: var(--z-hud); }
+#debug-layer { z-index: var(--z-debug); }
+#screens { z-index: var(--z-screens); }
+#chat-layer { z-index: var(--z-chat); }
+#menu-layer { z-index: var(--z-menu); }
+#toast-layer { z-index: var(--z-toast); }
+
+/* Anything mounted straight into a modal layer is interactive. */
+#screens > *,
+#menu-layer > * {
+  pointer-events: auto;
+}
+
+#toast-layer > * {
+  pointer-events: none;
+}
+
+/* ---- Generic helpers ----------------------------------------------------- */
+
+.hidden {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transition: opacity 0.25s ease, visibility 0s linear 0.25s;
+}
+
+.gone,
+[hidden] {
+  display: none !important;
+}
+
+.no-pointer { pointer-events: none !important; }
+.clickable { pointer-events: auto; cursor: pointer; }
+
+.selectable,
+.mc-input,
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.mc-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--u4);
+}
+
+.mc-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u4);
+}
+
+.mc-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mc-spacer { flex: 1 1 auto; }
+
+.mc-divider {
+  height: var(--u);
+  background: rgba(0, 0, 0, 0.45);
+  box-shadow: 0 var(--u) 0 rgba(255, 255, 255, 0.16);
+  margin: var(--u4) 0;
+}
+
+.mc-kbd {
+  display: inline-block;
+  min-width: var(--u12);
+  padding: 0 var(--u2);
+  background: #2b2b2b;
+  color: #e8e8e8;
+  text-align: center;
+  box-shadow:
+    inset var(--u) var(--u) 0 rgba(255, 255, 255, 0.22),
+    inset var(--un) var(--un) 0 rgba(0, 0, 0, 0.6),
+    0 0 0 var(--u) #000;
+}
+
+/* Vanilla text colours, usable anywhere (chat, tooltips, lists). */
+.mc-c-black { color: var(--c-black); }
+.mc-c-dark_blue { color: var(--c-dark_blue); }
+.mc-c-dark_green { color: var(--c-dark_green); }
+.mc-c-dark_aqua { color: var(--c-dark_aqua); }
+.mc-c-dark_red { color: var(--c-dark_red); }
+.mc-c-dark_purple { color: var(--c-dark_purple); }
+.mc-c-gold { color: var(--c-gold); }
+.mc-c-gray { color: var(--c-gray); }
+.mc-c-dark_gray { color: var(--c-dark_gray); }
+.mc-c-blue { color: var(--c-blue); }
+.mc-c-green { color: var(--c-green); }
+.mc-c-aqua { color: var(--c-aqua); }
+.mc-c-red { color: var(--c-red); }
+.mc-c-light_purple { color: var(--c-light_purple); }
+.mc-c-yellow { color: var(--c-yellow); }
+.mc-c-white { color: var(--c-white); }
+.mc-bold { font-weight: 700; }
+.mc-italic { font-style: italic; }
+.mc-strike { text-decoration: line-through; }
+.mc-under { text-decoration: underline; }
+.mc-obf { filter: blur(calc(var(--gs) * 0.6px)); opacity: 0.85; }
+
+/* ==========================================================================
+   3. CORE WIDGETS
+   ========================================================================== */
+
+/* ---- .mc-panel: the grey inventory panel --------------------------------
+   Light bevel top-left, dark bevel bottom-right, hard black outline, plus a
+   faint checker so the flat grey reads as a dithered 16x pixel texture. */
+.mc-panel {
+  position: relative;
+  padding: var(--u6);
+  background-color: var(--mc-gui);
+  background-image:
+    repeating-conic-gradient(rgba(255, 255, 255, 0.055) 0% 25%, transparent 0% 50%),
+    repeating-conic-gradient(rgba(0, 0, 0, 0.045) 0% 25%, transparent 0% 50%);
+  background-size: var(--u4) var(--u4), var(--u2) var(--u2);
+  background-position: 0 0, var(--u) var(--u);
+  color: var(--mc-text-dark);
+  box-shadow:
+    inset var(--u3) var(--u3) 0 0 var(--mc-gui-light),
+    inset var(--u) var(--u) 0 0 var(--mc-gui-light),
+    inset calc(var(--u3) * -1) calc(var(--u3) * -1) 0 0 var(--mc-gui-dark),
+    0 0 0 var(--u3) var(--mc-outline),
+    0 var(--u2) 0 var(--u3) rgba(0, 0, 0, 0.28);
+  text-shadow: none;
+}
+
+.mc-panel.flush {
+  padding: 0;
+}
+
+/* Dark variant used by chat, debug boxes and HUD popovers. */
+.mc-panel.dark {
+  background-color: rgba(18, 18, 20, 0.92);
+  background-image: none;
+  color: var(--mc-text);
+  text-shadow: var(--mc-shadow);
+  box-shadow:
+    inset var(--u) var(--u) 0 0 rgba(255, 255, 255, 0.18),
+    inset var(--un) var(--un) 0 0 rgba(0, 0, 0, 0.75),
+    0 0 0 var(--u2) var(--mc-outline);
+}
+
+/* ---- .mc-slot: 18x18 sunken slot ---------------------------------------- */
+.mc-slot {
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--slot);
+  height: var(--slot);
+  background-color: var(--mc-slot-bg);
+  box-shadow:
+    inset var(--u) var(--u) 0 0 var(--mc-slot-dark),
+    inset var(--un) var(--un) 0 0 var(--mc-slot-light);
+  cursor: pointer;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  transition: background-color 0.08s linear;
+}
+
+.mc-slot.large { width: var(--u20); height: var(--u20); }
+.mc-slot.big { width: var(--u24); height: var(--u24); }
+
+.mc-slot > canvas,
+.mc-slot > img,
+.mc-slot > .stack-icon {
+  width: var(--slot-icon);
+  height: var(--slot-icon);
+  display: block;
+  pointer-events: none;
+}
+
+.mc-slot:hover,
+.mc-slot.highlight {
+  background-color: var(--mc-slot-bg);
+  background-image: linear-gradient(var(--mc-slot-hover) 0 0);
+}
+
+.mc-slot:active {
+  background-image: linear-gradient(rgba(255, 255, 255, 0.7) 0 0);
+}
+
+/* Armour/offhand slots draw a faint ghost glyph behind the item. */
+.mc-slot.armor::after,
+.mc-slot.offhand-slot::after {
+  content: '';
+  position: absolute;
+  inset: var(--u2);
+  background: rgba(255, 255, 255, 0.09);
+  clip-path: polygon(50% 0, 100% 22%, 100% 78%, 50% 100%, 0 78%, 0 22%);
+  pointer-events: none;
+}
+
+.mc-slot.armor.filled::after,
+.mc-slot.offhand-slot.filled::after {
+  display: none;
+}
+
+.mc-slot.result {
+  width: var(--u24);
+  height: var(--u24);
+}
+
+.mc-slot.locked {
+  background-image: linear-gradient(var(--mc-slot-locked) 0 0);
+  cursor: not-allowed;
+}
+
+.mc-slot.locked::before {
+  content: '';
+  position: absolute;
+  inset: var(--u3);
+  background:
+    linear-gradient(45deg, transparent 44%, #d24b3d 44% 56%, transparent 56%),
+    linear-gradient(-45deg, transparent 44%, #d24b3d 44% 56%, transparent 56%);
+  pointer-events: none;
+}
+
+/* Stack count, bottom-right, hard shadow like vanilla. */
+.slot-count {
+  position: absolute;
+  right: var(--un);
+  bottom: 0;
+  font-size: var(--fs-sm);
+  line-height: 1;
+  color: #ffffff;
+  text-shadow: var(--mc-shadow);
+  pointer-events: none;
+}
+
+/* Durability bar across the bottom two pixels of a slot. */
+.slot-durability {
+  position: absolute;
+  left: var(--u2);
+  right: var(--u2);
+  bottom: var(--u2);
+  height: var(--u2);
+  background: #000;
+  pointer-events: none;
+}
+
+.slot-durability-fill {
+  height: 100%;
+  width: calc(var(--dura, 1) * 100%);
+  background: var(--dura-color, #4bd428);
+  box-shadow: inset 0 var(--un) 0 rgba(0, 0, 0, 0.45);
+}
+
+/* Enchantment glint: an animated diagonal sheen over the icon. */
+.stack-glint {
+  position: absolute;
+  inset: var(--u);
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.65;
+  background: repeating-linear-gradient(
+    115deg,
+    rgba(160, 60, 255, 0) 0 8%,
+    rgba(190, 110, 255, 0.85) 10% 13%,
+    rgba(160, 60, 255, 0) 15% 24%
+  );
+  background-size: 300% 100%;
+  animation: mc-glint 2.6s linear infinite;
+}
+
+@keyframes mc-glint {
+  from { background-position: 120% 0; }
+  to { background-position: -80% 0; }
+}
+
+/* ---- .mc-button: three states + disabled -------------------------------- */
+.mc-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--u3);
+  min-height: var(--u20);
+  padding: var(--u3) var(--u8);
+  border: 0;
+  margin: 0;
+  font: inherit;
+  font-size: var(--fs);
+  letter-spacing: calc(var(--gs) * 0.2px);
+  color: var(--mc-btn-text);
+  background-color: var(--mc-btn);
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.14) 0%,
+    rgba(255, 255, 255, 0.02) 45%,
+    rgba(0, 0, 0, 0.14) 55%,
+    rgba(0, 0, 0, 0.24) 100%
+  );
+  box-shadow:
+    inset var(--u) var(--u) 0 0 var(--mc-btn-hi),
+    inset var(--un) var(--un) 0 0 var(--mc-btn-lo),
+    0 0 0 var(--u) var(--mc-outline);
+  text-shadow: var(--mc-shadow);
+  text-align: center;
+  cursor: pointer;
+  pointer-events: auto;
+  user-select: none;
+  transition: background-color 0.08s linear, color 0.08s linear,
+              transform 0.05s linear;
+}
+
+.mc-button:hover,
+.mc-button:focus-visible,
+.mc-button.hover {
+  background-color: var(--mc-btn-hover);
+  color: var(--mc-btn-text-hover);
+  box-shadow:
+    inset var(--u) var(--u) 0 0 var(--mc-btn-hi),
+    inset var(--un) var(--un) 0 0 var(--mc-btn-lo),
+    0 0 0 var(--u) #ffffff;
+  outline: none;
+}
+
+.mc-button:active,
+.mc-button.pressed {
+  transform: translateY(var(--u));
+  background-color: #5c5c5c;
+  box-shadow:
+    inset var(--u) var(--u) 0 0 var(--mc-btn-lo),
+    inset var(--un) var(--un) 0 0 var(--mc-btn-hi),
+    0 0 0 var(--u) var(--mc-outline);
+}
+
+.mc-button.active {
+  background-color: #7d7d7d;
+  color: #ffffff;
+  box-shadow:
+    inset var(--u) var(--u) 0 0 var(--mc-btn-lo),
+    inset var(--un) var(--un) 0 0 var(--mc-btn-hi),
+    0 0 0 var(--u) #ffffff;
+}
+
+.mc-button.disabled,
+.mc-button:disabled,
+.mc-button[disabled] {
+  background-color: var(--mc-btn-off);
+  background-image: none;
+  color: var(--mc-btn-off-text);
+  text-shadow: var(--u) var(--u) 0 rgba(0, 0, 0, 0.4);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow:
+    inset var(--u) var(--u) 0 0 #5a5a5a,
+    inset var(--un) var(--un) 0 0 #2a2a2a,
+    0 0 0 var(--u) var(--mc-outline);
+}
+
+/* Green primary + red danger reuse the same machinery. */
+.mc-button.primary {
+  --mc-btn: var(--mc-green);
+  --mc-btn-hi: var(--mc-green-hi);
+  --mc-btn-lo: var(--mc-green-lo);
+  --mc-btn-hover: var(--mc-green-hover);
+  --mc-btn-text: var(--mc-green-text);
+  --mc-btn-text-hover: #ffffff;
+}
+
+.mc-button.danger {
+  --mc-btn: var(--mc-red);
+  --mc-btn-hi: var(--mc-red-hi);
+  --mc-btn-lo: var(--mc-red-lo);
+  --mc-btn-hover: var(--mc-red-hover);
+  --mc-btn-text: #ffe6e2;
+  --mc-btn-text-hover: #ffffff;
+}
+
+.mc-button.small {
+  min-height: var(--u14);
+  padding: var(--u) var(--u4);
+  font-size: var(--fs-sm);
+}
+
+.mc-button.wide {
+  width: calc(var(--gs) * 200px);
+  max-width: 100%;
+}
+
+.mc-button.half {
+  width: calc(var(--gs) * 98px);
+  max-width: 100%;
+}
+
+.mc-button.icon {
+  width: var(--u20);
+  min-width: var(--u20);
+  padding: 0;
+}
+
+/* ---- .mc-slider ---------------------------------------------------------
+   Works as a container div (.mc-slider-fill/.mc-slider-knob children, with
+   --fill set to 0..1) and as a plain <input type="range" class="mc-slider">. */
+.mc-slider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--gs) * 150px);
+  max-width: 100%;
+  height: var(--u20);
+  padding: 0 var(--u2);
+  background-color: #4d4d4d;
+  box-shadow:
+    inset var(--u) var(--u) 0 0 #2a2a2a,
+    inset var(--un) var(--un) 0 0 #808080,
+    0 0 0 var(--u) var(--mc-outline);
+  cursor: ew-resize;
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.mc-slider-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: calc(var(--fill, 0) * 100%);
+  background: linear-gradient(180deg, #6c8f4a, #46612e);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.mc-slider-knob {
+  position: absolute;
+  top: var(--u2);
+  bottom: var(--u2);
+  left: calc(var(--fill, 0) * (100% - var(--u8)));
+  width: var(--u8);
+  background-color: var(--mc-btn);
+  box-shadow:
+    inset var(--u) var(--u) 0 0 var(--mc-btn-hi),
+    inset var(--un) var(--un) 0 0 var(--mc-btn-lo),
+    0 0 0 var(--u) var(--mc-outline);
+  pointer-events: none;
+}
+
+.mc-slider:hover .mc-slider-knob {
+  background-color: var(--mc-btn-hover);
+}
+
+.mc-slider-label {
+  position: relative;
+  z-index: 1;
+  font-size: var(--fs-sm);
+  color: #ffffff;
+  text-shadow: var(--mc-shadow);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Native range input wearing the same clothes. */
+input[type='range'].mc-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 0;
+  background-color: #4d4d4d;
+}
+
+input[type='range'].mc-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: var(--u8);
+  height: var(--u16);
+  background: var(--mc-btn);
+  border: 0;
+  box-shadow:
+    inset var(--u) var(--u) 0 0 var(--mc-btn-hi),
+    inset var(--un) var(--un) 0 0 var(--mc-btn-lo),
+    0 0 0 var(--u) var(--mc-outline);
+  cursor: ew-resize;
+}
+
+input[type='range'].mc-slider::-moz-range-thumb {
+  width: var(--u8);
+  height: var(--u16);
+  border: 0;
+  border-radius: 0;
+  background: var(--mc-btn);
+  box-shadow:
+    inset var(--u) var(--u) 0 0 var(--mc-btn-hi),
+    inset var(--un) var(--un) 0 0 var(--mc-btn-lo),
+    0 0 0 var(--u) var(--mc-outline);
+  cursor: ew-resize;
+}
+
+input[type='range'].mc-slider::-moz-range-track {
+  background: transparent;
+}
+
+/* ---- .mc-toggle ---------------------------------------------------------- */
+.mc-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: var(--u32);
+  height: var(--u16);
+  padding: var(--u2);
+  background-color: #3a3a3a;
+  box-shadow:
+    inset var(--u) var(--u) 0 0 #1c1c1c,
+    inset var(--un) var(--un) 0 0 #6d6d6d,
+    0 0 0 var(--u) var(--mc-outline);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background-color 0.12s linear;
+}
+
+.mc-toggle-knob {
+  width: var(--u12);
+  height: 100%;
+  background-color: var(--mc-btn);
+  box-shadow:
+    inset var(--u) var(--u) 0 0 var(--mc-btn-hi),
+    inset var(--un) var(--un) 0 0 var(--mc-btn-lo);
+  transform: translateX(0);
+  transition: transform 0.12s ease-out, background-color 0.12s linear;
+}
+
+.mc-toggle.on {
+  background-color: var(--mc-green-lo);
+}
+
+.mc-toggle.on .mc-toggle-knob {
+  transform: translateX(calc(var(--u32) - var(--u12) - var(--u4)));
+  background-color: var(--mc-green);
+  box-shadow:
+    inset var(--u) var(--u) 0 0 var(--mc-green-hi),
+    inset var(--un) var(--un) 0 0 var(--mc-green-lo);
+}
+
+.mc-toggle.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ---- .mc-input ----------------------------------------------------------- */
+.mc-input {
+  display: block;
+  width: 100%;
+  min-height: var(--u20);
+  padding: var(--u2) var(--u4);
+  border: 0;
+  font: inherit;
+  font-size: var(--fs);
+  color: #ffffff;
+  background: #000000;
+  box-shadow: 0 0 0 var(--u) #a0a0a0;
+  text-shadow: var(--mc-shadow);
+  caret-color: #ffffff;
+  outline: none;
+  pointer-events: auto;
+}
+
+.mc-input::placeholder {
+  color: #6f6f6f;
+}
+
+.mc-input:focus {
+  box-shadow: 0 0 0 var(--u) #ffffff;
+}
+
+.mc-input.invalid {
+  color: #ff8080;
+  box-shadow: 0 0 0 var(--u) #ff5555;
+}
+
+/* ---- .mc-scroll ---------------------------------------------------------- */
+.mc-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  pointer-events: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #8b8b8b #0c0c0c;
+  overscroll-behavior: contain;
+}
+
+.mc-scroll::-webkit-scrollbar {
+  width: var(--u6);
+  height: var(--u6);
+}
+
+.mc-scroll::-webkit-scrollbar-track {
+  background: #0c0c0c;
+  box-shadow: inset 0 0 0 var(--u) #000;
+}
+
+.mc-scroll::-webkit-scrollbar-thumb {
+  background: #8b8b8b;
+  box-shadow:
+    inset var(--u) var(--u) 0 0 #ffffff,
+    inset var(--un) var(--un) 0 0 #555555;
+}
+
+.mc-scroll::-webkit-scrollbar-thumb:hover {
+  background: #a5a5a5;
+}
+
+/* ---- .mc-tooltip --------------------------------------------------------- */
+.mc-tooltip {
+  position: absolute;
+  z-index: 5;
+  min-width: var(--u32);
+  max-width: calc(var(--gs) * 170px);
+  padding: var(--u4) var(--u5);
+  background: var(--mc-tooltip-bg);
+  color: #ffffff;
+  font-size: var(--fs-sm);
+  text-shadow: var(--mc-shadow);
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 var(--u) rgba(80, 0, 255, 0.42),
+    0 0 0 var(--u) rgba(16, 0, 16, 0.94);
+  border-image:
+    linear-gradient(180deg, var(--mc-tooltip-edge-a), var(--mc-tooltip-edge-b)) 1;
+  white-space: nowrap;
+}
+
+.mc-tooltip.wrap {
+  white-space: normal;
+}
+
+.mc-tooltip-title {
+  font-size: var(--fs);
+  color: #ffffff;
+  margin-bottom: var(--u2);
+}
+
+.mc-tooltip-line {
+  color: var(--c-gray);
+  font-size: var(--fs-sm);
+}
+
+.mc-tooltip.rarity-common .mc-tooltip-title { color: #ffffff; }
+.mc-tooltip.rarity-uncommon .mc-tooltip-title { color: var(--c-yellow); }
+.mc-tooltip.rarity-rare .mc-tooltip-title { color: var(--c-aqua); }
+.mc-tooltip.rarity-epic .mc-tooltip-title { color: var(--c-light_purple); }
+
+/* ---- .mc-progress -------------------------------------------------------- */
+.mc-progress {
+  position: relative;
+  width: 100%;
+  height: var(--u6);
+  background: #1b1b1b;
+  box-shadow: 0 0 0 var(--u) #000;
+  overflow: hidden;
+}
+
+.mc-progress-fill {
+  height: 100%;
+  width: calc(var(--value, 0) * 100%);
+  background: linear-gradient(180deg, var(--mc-green-hi), var(--mc-green));
+  box-shadow: inset 0 var(--un) 0 rgba(0, 0, 0, 0.35);
+  transition: width 0.12s linear;
+}
+
+.mc-progress.xp .mc-progress-fill {
+  background: linear-gradient(180deg, #a8ff4a, var(--mc-xp));
+}
+
+.mc-progress.durability .mc-progress-fill {
+  background: var(--dura-color, #4bd428);
+}
+
+/* ---- .mc-tab ------------------------------------------------------------- */
+.mc-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--u24);
+  height: var(--u24);
+  padding: 0 var(--u4);
+  background-color: #9d9d9d;
+  color: #2a2a2a;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow:
+    inset var(--u) var(--u) 0 0 rgba(255, 255, 255, 0.75),
+    inset var(--un) var(--un) 0 0 rgba(60, 60, 60, 0.8),
+    0 0 0 var(--u) var(--mc-outline);
+  transition: background-color 0.08s linear, transform 0.08s ease-out;
+}
+
+.mc-tab:hover { background-color: #b4b4b4; }
+
+.mc-tab.active {
+  background-color: var(--mc-gui);
+  color: #1e1e1e;
+  z-index: 2;
+}
+
+.mc-tab.top.active { transform: translateY(var(--un2)); }
+.mc-tab.bottom.active { transform: translateY(var(--u2)); }
+
+/* ---- .mc-title ----------------------------------------------------------- */
+.mc-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: normal;
+  letter-spacing: calc(var(--gs) * 0.4px);
+  color: #ffffff;
+  text-shadow: var(--mc-shadow);
+  text-align: center;
+}
+
+.mc-title.small { font-size: var(--fs); }
+.mc-title.big { font-size: var(--fs-xl); }
+.mc-title.dark { color: #3f3f3f; text-shadow: none; }
+
+.mc-label {
+  font-size: var(--fs-sm);
+  color: #dcdcdc;
+  text-shadow: var(--mc-shadow);
+}
+
+.mc-panel .mc-label,
+.mc-panel .mc-title:not(.light) {
+  color: #3f3f3f;
+  text-shadow: none;
+}
+
+.mc-hint {
+  font-size: var(--fs-xs);
+  color: var(--c-gray);
+  text-shadow: var(--mc-shadow);
+}
+
+.mc-badge {
+  display: inline-block;
+  padding: 0 var(--u2);
+  background: #1f1f1f;
+  color: var(--c-yellow);
+  font-size: var(--fs-xs);
+  box-shadow: 0 0 0 var(--u) #000;
+}
+
+/* ---- .mc-list ------------------------------------------------------------ */
+.mc-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u2);
+  padding: var(--u2);
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: inset 0 0 0 var(--u) rgba(255, 255, 255, 0.12);
+  pointer-events: auto;
+}
+
+.mc-list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--u4);
+  padding: var(--u3) var(--u4);
+  background: rgba(28, 28, 30, 0.85);
+  color: #e8e8e8;
+  font-size: var(--fs-sm);
+  text-shadow: var(--mc-shadow);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 var(--u) rgba(0, 0, 0, 0.7);
+  transition: background-color 0.08s linear;
+}
+
+.mc-list-item:hover {
+  background: rgba(58, 58, 62, 0.92);
+  box-shadow: inset 0 0 0 var(--u) rgba(255, 255, 255, 0.35);
+}
+
+.mc-list-item.selected {
+  background: rgba(70, 78, 60, 0.95);
+  box-shadow: inset 0 0 0 var(--u) #ffffff;
+}
+
+.mc-list-item.disabled {
+  color: #7a7a7a;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   4. HUD
+   ========================================================================== */
+
+#hud {
+  font-size: var(--fs);
+  text-shadow: var(--mc-shadow);
+}
+
+/* Optional wrapper: if hud.js nests the bars in .hud-bottom they flow in a
+   column instead of using the absolute defaults below. */
+.hud-bottom {
+  position: absolute;
+  left: 50%;
+  bottom: var(--u2);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--u2);
+  pointer-events: none;
+}
+
+.hud-bottom .hotbar,
+.hud-bottom .hearts,
+.hud-bottom .hunger,
+.hud-bottom .armor-bar,
+.hud-bottom .air-bar,
+.hud-bottom .xp-bar,
+.hud-bottom .xp-level,
+.hud-bottom .action-bar,
+.hud-bottom .hotbar-item-name {
+  position: static;
+  transform: none;
+  margin: 0;
+  left: auto;
+  right: auto;
+  bottom: auto;
+}
+
+/* ---- Hotbar -------------------------------------------------------------- */
+.hotbar {
+  position: absolute;
+  left: 50%;
+  bottom: var(--u2);
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0;
+  padding: var(--u);
+  background: rgba(12, 12, 14, 0.62);
+  box-shadow:
+    inset 0 0 0 var(--u) rgba(255, 255, 255, 0.18),
+    0 0 0 var(--u) rgba(0, 0, 0, 0.85);
+  pointer-events: auto;
+}
+
+.hotbar-slot {
+  position: relative;
+  width: var(--hotbar-slot);
+  height: var(--hotbar-slot);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 0 var(--u) rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.hotbar-slot > canvas,
+.hotbar-slot > img,
+.hotbar-slot > .stack-icon {
+  width: var(--slot-icon);
+  height: var(--slot-icon);
+  pointer-events: none;
+}
+
+.hotbar-slot .slot-count {
+  right: 0;
+  bottom: 0;
+  font-size: var(--fs-sm);
+}
+
+/* The white selection frame. hud.js sets --sel to the slot index (0..8),
+   or toggles .selected on a slot if it prefers not to animate. */
+.hotbar-selector {
+  position: absolute;
+  top: var(--un2);
+  left: var(--un);
+  width: var(--u24);
+  height: var(--u24);
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 var(--u2) rgba(255, 255, 255, 0.92),
+    0 0 0 var(--u) rgba(0, 0, 0, 0.55);
+  transform: translateX(calc(var(--sel, 0) * var(--gs) * 20px));
+  transition: transform 0.07s ease-out;
+}
+
+.hotbar-slot.selected {
+  box-shadow:
+    inset 0 0 0 var(--u2) rgba(255, 255, 255, 0.92),
+    inset 0 0 0 var(--u3) rgba(0, 0, 0, 0.5);
+}
+
+/* Item name popup above the hotbar; add .fading (or remove the node) to fade. */
+.hotbar-item-name {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--gs) * 46px);
+  transform: translateX(-50%);
+  padding: var(--u) var(--u3);
+  font-size: var(--fs);
+  color: #ffffff;
+  text-shadow: var(--mc-shadow);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.5s linear;
+}
+
+.hotbar-item-name.fading { opacity: 0; }
+
+.hotbar-item-name.rarity-uncommon { color: var(--c-yellow); }
+.hotbar-item-name.rarity-rare { color: var(--c-aqua); }
+.hotbar-item-name.rarity-epic { color: var(--c-light_purple); }
+
+/* Action bar (status / command feedback), just above the item name. */
+.action-bar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--gs) * 58px);
+  transform: translateX(-50%);
+  padding: var(--u) var(--u4);
+  font-size: var(--fs);
+  color: #ffffff;
+  text-shadow: var(--mc-shadow);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.4s linear;
+}
+
+.action-bar.fading { opacity: 0; }
+
+/* ---- Status bars: shared 9x9 pixel-icon machinery ------------------------
+   Each icon is drawn as a stack of solid-colour gradient layers, one per row
+   run of the sprite. currentColor lets the same shape be re-tinted. */
+:root {
+  --heart-layers:
+    linear-gradient(currentColor 0 0) calc(var(--u) * 1) 0 / calc(var(--u) * 2) var(--u) no-repeat,
+    linear-gradient(currentColor 0 0) calc(var(--u) * 6) 0 / calc(var(--u) * 2) var(--u) no-repeat,
+    linear-gradient(currentColor 0 0) 0 calc(var(--u) * 1) / calc(var(--u) * 4) var(--u) no-repeat,
+    linear-gradient(currentColor 0 0) calc(var(--u) * 5) calc(var(--u) * 1) / calc(var(--u) * 4) var(--u) no-repeat,
+    linear-gradient(currentColor 0 0) 0 calc(var(--u) * 2) / calc(var(--u) * 9) calc(var(--u) * 3) no-repeat,
+    linear-gradient(currentColor 0 0) calc(var(--u) * 1) calc(var(--u) * 5) / calc(var(--u) * 7) var(--u) no-repeat,
+    linear-gradient(currentColor 0 0) calc(var(--u) * 2) calc(var(--u) * 6) / calc(var(--u) * 5) var(--u) no-repeat,
+    linear-gradient(currentColor 0 0) calc(var(--u) * 3) calc(var(--u) * 7) / calc(var(--u) * 3) var(--u) no-repeat,
+    linear-gradient(currentColor 0 0) calc(var(--u) * 4) calc(var(--u) * 8) / var(--u) var(--u) no-repeat;
+
+  --food-layers:
+    linear-gradient(currentColor 0 0) calc(var(--u) * 2) 0 / calc(var(--u) * 5) var(--u) no-repeat,
+    linear-gradient(currentColor 0 0) calc(var(--u) * 1) calc(var(--u) * 1) / calc(var(--u) * 7) var(--u) no-repeat,
+    linear-gradient(currentColor 0 0) 0 calc(var(--u) * 2) / calc(var(--u) * 9) calc(var(--u) * 3) no-repeat,
+    linear-gradient(currentColor 0 0) calc(var(--u) * 1) calc(var(--u) * 5) / calc(var(--u) * 7) var(--u) no-repeat,
+    linear-gradient(currentColor 0 0) calc(var(--u) * 2) calc(var(--u) * 6) / calc(var(--u) * 4) var(--u) no-repeat,
+    linear-gradient(currentColor 0 0) calc(var(--u) * 1) calc(var(--u) * 7) / calc(var(--u) * 3) var(--u) no-repeat,
+    linear-gradient(currentColor 0 0) 0 calc(var(--u) * 8) / calc(var(--u) * 2) var(--u) no-repeat;
+
+  --armor-layers:
+    linear-gradient(currentColor 0 0) calc(var(--u) * 1) 0 / calc(var(--u) * 7) var(--u) no-repeat,
+    linear-gradient(currentColor 0 0) 0 calc(var(--u) * 1) / calc(var(--u) * 9) calc(var(--u) * 4) no-repeat,
+    linear-gradient(currentColor 0 0) calc(var(--u) * 1) calc(var(--u) * 5) / calc(var(--u) * 7) var(--u) no-repeat,
+    linear-gradient(currentColor 0 0) calc(var(--u) * 2) calc(var(--u) * 6) / calc(var(--u) * 5) var(--u) no-repeat,
+    linear-gradient(currentColor 0 0) calc(var(--u) * 3) calc(var(--u) * 7) / calc(var(--u) * 3) var(--u) no-repeat,
+    linear-gradient(currentColor 0 0) calc(var(--u) * 4) calc(var(--u) * 8) / var(--u) var(--u) no-repeat;
+}
+
+.hearts,
+.hunger,
+.armor-bar,
+.air-bar {
+  position: absolute;
+  display: flex;
+  align-items: flex-end;
+  pointer-events: none;
+}
+
+/* Left column: hearts, with armour stacked above them. */
+.hearts {
+  left: 50%;
+  margin-left: calc(var(--gs) * -91px);
+  bottom: calc(var(--gs) * 29px);
+  flex-direction: row;
+}
+
+.armor-bar {
+  left: 50%;
+  margin-left: calc(var(--gs) * -91px);
+  bottom: calc(var(--gs) * 39px);
+  flex-direction: row;
+}
+
+/* Right column: hunger, with the air bar above it. */
+.hunger {
+  right: 50%;
+  margin-right: calc(var(--gs) * -91px);
+  bottom: calc(var(--gs) * 29px);
+  flex-direction: row-reverse;
+}
+
+.air-bar {
+  right: 50%;
+  margin-right: calc(var(--gs) * -91px);
+  bottom: calc(var(--gs) * 39px);
+  flex-direction: row-reverse;
+}
+
+.heart,
+.food,
+.armor {
+  position: relative;
+  width: calc(var(--gs) * 9px);
+  height: calc(var(--gs) * 9px);
+  margin-right: var(--un);          /* vanilla spacing is 8px per icon */
+  flex: 0 0 auto;
+}
+
+.hunger .food,
+.air-bar .bubble {
+  margin-right: 0;
+  margin-left: var(--un);
+}
+
+.heart::before,
+.heart::after,
+.food::before,
+.food::after,
+.armor::before,
+.armor::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+/* Empty (background) layer */
+.heart::before { color: var(--mc-heart-empty); background: var(--heart-layers); }
+.food::before { color: var(--mc-food-empty); background: var(--food-layers); }
+.armor::before { color: var(--mc-armor-empty); background: var(--armor-layers); }
+
+/* Filled layer, clipped in half for the half-icon state */
+.heart::after {
+  color: var(--mc-heart);
+  background: var(--heart-layers);
+  filter: drop-shadow(var(--u) var(--u) 0 rgba(0, 0, 0, 0.45));
+}
+
+.food::after {
+  color: var(--mc-food);
+  background: var(--food-layers);
+  filter: drop-shadow(var(--u) var(--u) 0 rgba(0, 0, 0, 0.45));
+}
+
+.armor::after {
+  color: var(--mc-armor);
+  background: var(--armor-layers);
+  filter: drop-shadow(var(--u) var(--u) 0 rgba(0, 0, 0, 0.45));
+}
+
+.heart.empty::after,
+.food.empty::after,
+.armor.empty::after { display: none; }
+
+.heart.half::after,
+.food.half::after,
+.armor.half::after { clip-path: inset(0 50% 0 0); }
+
+/* Hunger is right-to-left, so its half icon keeps the right side. */
+.hunger .food.half::after { clip-path: inset(0 0 0 50%); }
+
+.heart.absorption::after { color: var(--mc-heart-absorption); }
+.heart.poison::after { color: var(--mc-heart-poison); }
+.heart.wither::after { color: var(--mc-heart-wither); }
+.heart.frozen::after { color: var(--mc-heart-frozen); }
+.heart.hardcore::after { color: #b03030; }
+.food.hungry::after { color: #7a6a3a; }
+
+/* The little bounce when you take damage or regenerate. */
+.heart.beat { animation: mc-heart-beat 0.28s steps(3, end); }
+
+@keyframes mc-heart-beat {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+.hearts.low .heart::after { animation: mc-low-health 0.9s steps(2, end) infinite; }
+
+@keyframes mc-low-health {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* ---- Air bubbles --------------------------------------------------------- */
+.air-bar .bubble {
+  position: relative;
+  width: calc(var(--gs) * 9px);
+  height: calc(var(--gs) * 9px);
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 30%,
+      #ffffff 0 16%,
+      var(--mc-air) 22% 62%,
+      #2a7fc0 68% 100%);
+  box-shadow: inset 0 0 0 var(--u) rgba(0, 0, 0, 0.35);
+}
+
+.air-bar .bubble.pop {
+  transform: scale(0.55);
+  opacity: 0.6;
+  background: radial-gradient(circle at 50% 50%, #cfe9ff 0 30%, transparent 45%);
+  box-shadow: none;
+}
+
+/* ---- XP bar and level ---------------------------------------------------- */
+.xp-bar {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--gs) * 24px);
+  width: calc(var(--gs) * 182px);
+  height: calc(var(--gs) * 5px);
+  background: var(--mc-xp-track);
+  box-shadow: 0 0 0 var(--u) rgba(0, 0, 0, 0.85);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.xp-bar-fill {
+  height: 100%;
+  width: calc(var(--xp, 0) * 100%);
+  background: linear-gradient(180deg, #b6ff5c 0 40%, var(--mc-xp) 40% 100%);
+  box-shadow: inset 0 var(--un) 0 var(--mc-xp-dark);
+  transition: width 0.1s linear;
+}
+
+.xp-level {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--gs) * 27px);
+  font-size: var(--fs-lg);
+  line-height: 1;
+  color: #7fff2a;
+  text-shadow: var(--mc-outline-text);
+  pointer-events: none;
+}
+
+.xp-level.levelup { animation: mc-levelup 0.7s ease-out; }
+
+@keyframes mc-levelup {
+  0% { transform: translateX(-50%) scale(1); color: #ffffff; }
+  35% { transform: translateX(-50%) scale(1.6); color: #ffffb0; }
+  100% { transform: translateX(-50%) scale(1); color: #7fff2a; }
+}
+
+/* ---- Crosshair ----------------------------------------------------------- */
+.crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--gs) * 9px);
+  height: calc(var(--gs) * 9px);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  mix-blend-mode: difference;
+  background:
+    linear-gradient(#ffffff 0 0) center / 100% var(--u) no-repeat,
+    linear-gradient(#ffffff 0 0) center / var(--u) 100% no-repeat;
+}
+
+.crosshair.dot {
+  width: var(--u2);
+  height: var(--u2);
+  background: linear-gradient(#ffffff 0 0) center / 100% 100% no-repeat;
+}
+
+/* Brief bloom when an attack lands. */
+.crosshair.hit::after {
+  content: '';
+  position: absolute;
+  inset: calc(var(--gs) * -3px);
+  background:
+    linear-gradient(45deg, transparent 45%, #ffffff 45% 55%, transparent 55%),
+    linear-gradient(-45deg, transparent 45%, #ffffff 45% 55%, transparent 55%);
+  animation: mc-crosshair-hit 0.25s ease-out forwards;
+}
+
+@keyframes mc-crosshair-hit {
+  from { opacity: 1; transform: scale(0.6); }
+  to { opacity: 0; transform: scale(1.4); }
+}
+
+/* Attack-cooldown indicator under the crosshair (--cool: 0..1). */
+.crosshair-cooldown {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + var(--u10));
+  width: calc(var(--gs) * 17px);
+  height: calc(var(--gs) * 4px);
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 0 var(--u) rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+}
+
+.crosshair-cooldown::after {
+  content: '';
+  display: block;
+  height: 100%;
+  width: calc(var(--cool, 1) * 100%);
+  background: #d0d0d0;
+}
+
+/* ---- Boss bars ----------------------------------------------------------- */
+.boss-bars {
+  position: absolute;
+  left: 50%;
+  top: var(--u8);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--u4);
+  pointer-events: none;
+}
+
+.boss-bar {
+  --boss-color: #ff2b9d;
+  width: calc(var(--gs) * 182px);
+  max-width: 90vw;
+  pointer-events: none;
+}
+
+.boss-bar-name {
+  display: block;
+  text-align: center;
+  font-size: var(--fs);
+  color: #ffffff;
+  text-shadow: var(--mc-shadow);
+  margin-bottom: var(--u);
+}
+
+.boss-bar-track {
+  position: relative;
+  height: calc(var(--gs) * 5px);
+  background: rgba(10, 10, 12, 0.85);
+  box-shadow: 0 0 0 var(--u) rgba(0, 0, 0, 0.9);
+  overflow: hidden;
+}
+
+.boss-bar-fill {
+  height: 100%;
+  width: calc(var(--pct, 1) * 100%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--boss-color) 70%, #ffffff) 0 35%,
+    var(--boss-color) 35% 100%
+  );
+  transition: width 0.2s linear;
+}
+
+.boss-bar-track.notched::after,
+.boss-bar.notched .boss-bar-track::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.85) 0 var(--u),
+    transparent var(--u) var(--notch, 10%)
+  );
+  pointer-events: none;
+}
+
+.boss-bar.pink { --boss-color: #ff2b9d; }
+.boss-bar.blue { --boss-color: #3b7dff; }
+.boss-bar.red { --boss-color: #e03b30; }
+.boss-bar.green { --boss-color: #3fbf3f; }
+.boss-bar.yellow { --boss-color: #f2d332; }
+.boss-bar.purple { --boss-color: #9b3fe0; }
+.boss-bar.white { --boss-color: #e8e8e8; }
+
+/* ---- Status effect icons ------------------------------------------------- */
+.effect-icons {
+  position: absolute;
+  top: var(--u4);
+  right: var(--u4);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--u2);
+  max-width: 50vw;
+  pointer-events: none;
+}
+
+.effect-icon {
+  position: relative;
+  width: var(--u24);
+  height: var(--u24);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(28, 28, 32, 0.82);
+  background-image: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.14),
+    rgba(0, 0, 0, 0.2)
+  );
+  box-shadow:
+    inset var(--u) var(--u) 0 rgba(255, 255, 255, 0.16),
+    inset var(--un) var(--un) 0 rgba(0, 0, 0, 0.7),
+    0 0 0 var(--u) rgba(0, 0, 0, 0.75);
+}
+
+.effect-icon.ambient { opacity: 0.65; }
+.effect-icon.bad { box-shadow:
+    inset var(--u) var(--u) 0 rgba(255, 120, 120, 0.2),
+    inset var(--un) var(--un) 0 rgba(0, 0, 0, 0.7),
+    0 0 0 var(--u) rgba(70, 0, 0, 0.85); }
+
+.effect-icon.expiring { animation: mc-effect-blink 0.8s steps(2, end) infinite; }
+
+@keyframes mc-effect-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.effect-icon-glyph {
+  width: var(--u18);
+  height: var(--u18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-sm);
+  color: #ffffff;
+  background: var(--effect-color, #7a5cff);
+  box-shadow: inset 0 0 0 var(--u) rgba(0, 0, 0, 0.35);
+  text-shadow: var(--mc-shadow);
+}
+
+.effect-icon-time {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--gs) * -7px);
+  transform: translateX(-50%);
+  font-size: var(--fs-xs);
+  color: #d8d8d8;
+  text-shadow: var(--mc-shadow);
+  white-space: nowrap;
+}
+
+/* Toasts / advancements, top-right. */
+.toast {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--u4);
+  width: calc(var(--gs) * 160px);
+  margin: var(--u4) var(--u4) 0 auto;
+  padding: var(--u4);
+  background-color: #2b2b2f;
+  color: #ffffff;
+  box-shadow:
+    inset var(--u) var(--u) 0 rgba(255, 255, 255, 0.2),
+    inset var(--un) var(--un) 0 rgba(0, 0, 0, 0.7),
+    0 0 0 var(--u) #000;
+  animation: mc-toast-in 0.35s ease-out;
+}
+
+.toast.out { animation: mc-toast-out 0.4s ease-in forwards; }
+.toast.achievement { background-color: #33372b; }
+.toast-icon { width: var(--u20); height: var(--u20); flex: 0 0 auto; }
+.toast-title { font-size: var(--fs-sm); color: var(--c-yellow); }
+.toast-desc { font-size: var(--fs-xs); color: #ffffff; }
+
+@keyframes mc-toast-in {
+  from { transform: translateX(120%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes mc-toast-out {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(120%); opacity: 0; }
+}
+
+/* ==========================================================================
+   5. SCREENS (inventory, crafting, furnace, ...)
+   ========================================================================== */
+
+.screen-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--u8);
+  background: radial-gradient(
+      ellipse at 50% 45%,
+      rgba(12, 12, 14, 0.55) 0%,
+      rgba(8, 8, 10, 0.82) 100%
+    ),
+    var(--mc-screen-dim);
+  pointer-events: auto;
+  cursor: default;
+  animation: mc-fade-in 0.12s linear;
+}
+
+.screen-overlay.blur { backdrop-filter: blur(calc(var(--gs) * 0.7px)); }
+
+@keyframes mc-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.screen {
+  position: relative;
+  max-height: calc(100% - var(--u8));
+  display: flex;
+  flex-direction: column;
+  gap: var(--u4);
+  padding: var(--u8);
+  background-color: var(--mc-gui);
+  background-image:
+    repeating-conic-gradient(rgba(255, 255, 255, 0.055) 0% 25%, transparent 0% 50%),
+    repeating-conic-gradient(rgba(0, 0, 0, 0.045) 0% 25%, transparent 0% 50%);
+  background-size: var(--u4) var(--u4), var(--u2) var(--u2);
+  background-position: 0 0, var(--u) var(--u);
+  color: var(--mc-text-dark);
+  box-shadow:
+    inset var(--u3) var(--u3) 0 0 var(--mc-gui-light),
+    inset calc(var(--u3) * -1) calc(var(--u3) * -1) 0 0 var(--mc-gui-dark),
+    0 0 0 var(--u3) var(--mc-outline),
+    0 var(--u4) 0 var(--u3) rgba(0, 0, 0, 0.3);
+  animation: mc-screen-pop 0.12s ease-out;
+}
+
+@keyframes mc-screen-pop {
+  from { transform: scale(0.96); opacity: 0.4; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.screen.wide { width: calc(var(--gs) * 276px); max-width: 100%; }
+.screen.tall { min-height: calc(var(--gs) * 200px); }
+
+.screen-title {
+  font-size: var(--fs);
+  color: #404040;
+  text-shadow: none;
+  margin: 0 0 var(--u2) 0;
+}
+
+.screen-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u4);
+  min-height: 0;
+}
+
+.screen-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--u4);
+  margin-top: var(--u4);
+}
+
+.screen-close {
+  position: absolute;
+  top: var(--un2);
+  right: var(--un2);
+  width: var(--u16);
+  height: var(--u16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #8b3a30;
+  color: #ffe8e4;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  box-shadow:
+    inset var(--u) var(--u) 0 rgba(255, 255, 255, 0.3),
+    inset var(--un) var(--un) 0 rgba(0, 0, 0, 0.5),
+    0 0 0 var(--u) #000;
+}
+
+.screen-close:hover { background: #b04a3c; }
+
+/* ---- Slot grids ---------------------------------------------------------- */
+.slot-grid,
+.inventory-grid,
+.chest-grid,
+.hotbar-grid,
+.crafting-grid,
+.dispenser-grid,
+.hopper-grid {
+  display: grid;
+  gap: var(--slot-gap);
+  justify-content: start;
+}
+
+.inventory-grid,
+.chest-grid,
+.hotbar-grid,
+.slot-grid {
+  grid-template-columns: repeat(9, var(--slot));
+}
+
+.crafting-grid,
+.dispenser-grid {
+  grid-template-columns: repeat(3, var(--slot));
+}
+
+.hopper-grid { grid-template-columns: repeat(5, var(--slot)); }
+
+/* Vanilla leaves a gap between the backpack and the hotbar row. */
+.hotbar-grid { margin-top: var(--u4); }
+
+.armor-slots {
+  display: grid;
+  grid-template-columns: var(--slot);
+  gap: var(--u2);
+}
+
+.player-preview {
+  width: calc(var(--gs) * 54px);
+  height: calc(var(--gs) * 72px);
+  background: #1c1c1c;
+  box-shadow:
+    inset var(--u) var(--u) 0 var(--mc-slot-dark),
+    inset var(--un) var(--un) 0 var(--mc-slot-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.player-preview canvas { width: 100%; height: 100%; }
+
+/* The stack glued to the cursor while dragging. */
+.held-stack {
+  position: fixed;
+  z-index: 200;
+  width: var(--slot-icon);
+  height: var(--slot-icon);
+  margin: calc(var(--slot-icon) / -2) 0 0 calc(var(--slot-icon) / -2);
+  pointer-events: none;
+  filter: drop-shadow(var(--u2) var(--u2) 0 rgba(0, 0, 0, 0.45));
+}
+
+.held-stack .slot-count {
+  right: var(--un);
+  bottom: var(--un);
+}
+
+/* ---- Crafting ------------------------------------------------------------ */
+.crafting-arrow {
+  width: var(--u24);
+  height: var(--u16);
+  background: #555555;
+  clip-path: polygon(0 33%, 62% 33%, 62% 0, 100% 50%, 62% 100%, 62% 67%, 0 67%);
+  align-self: center;
+}
+
+.crafting-arrow.ready { background: #3f3f3f; }
+
+/* ---- Furnace ------------------------------------------------------------- */
+.furnace-layout {
+  display: grid;
+  grid-template-columns: var(--slot) var(--u24) var(--u24);
+  grid-template-rows: var(--slot) var(--u16) var(--slot);
+  align-items: center;
+  justify-items: center;
+  gap: var(--u2);
+}
+
+.furnace-layout .furnace-input { grid-area: 1 / 1; }
+.furnace-layout .furnace-flame { grid-area: 2 / 1; }
+.furnace-layout .furnace-fuel { grid-area: 3 / 1; }
+.furnace-layout .furnace-arrow { grid-area: 2 / 2; }
+.furnace-layout .furnace-output { grid-area: 2 / 3; }
+
+/* Smelt-progress arrow: the white fill sweeps left to right (--progress 0..1) */
+.furnace-arrow {
+  position: relative;
+  width: var(--u24);
+  height: calc(var(--gs) * 17px);
+}
+
+.furnace-arrow::before,
+.furnace-arrow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(0 29%, 66% 29%, 66% 0, 100% 50%, 66% 100%, 66% 71%, 0 71%);
+}
+
+.furnace-arrow::before { background: #5a5a5a; }
+
+.furnace-arrow::after {
+  background: linear-gradient(
+    90deg,
+    #ffffff 0 calc(var(--progress, 0) * 100%),
+    transparent calc(var(--progress, 0) * 100%) 100%
+  );
+}
+
+/* Fuel flame: burns from the bottom up (--fuel 0..1) */
+.furnace-flame {
+  position: relative;
+  width: var(--u14);
+  height: var(--u14);
+}
+
+.furnace-flame::before,
+.furnace-flame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(
+    50% 0, 66% 22%, 60% 30%, 78% 46%, 82% 68%,
+    64% 100%, 36% 100%, 18% 68%, 26% 40%, 40% 26%
+  );
+}
+
+.furnace-flame::before { background: #4a4a4a; }
+
+.furnace-flame::after {
+  background: linear-gradient(
+    0deg,
+    #ffcc33 0 calc(var(--fuel, 0) * 100%),
+    transparent calc(var(--fuel, 0) * 100%) 100%
+  );
+}
+
+.furnace-flame.lit::after { animation: mc-flame-flicker 0.5s steps(2, end) infinite; }
+
+@keyframes mc-flame-flicker {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.25); }
+}
+
+/* ---- Anvil --------------------------------------------------------------- */
+.anvil {
+  display: grid;
+  grid-template-columns: var(--slot) var(--u16) var(--slot) var(--u20) var(--u24);
+  align-items: center;
+  justify-items: center;
+  gap: var(--u2);
+}
+
+.anvil-plus {
+  width: var(--u12);
+  height: var(--u12);
+  background:
+    linear-gradient(#555 0 0) center / 100% var(--u3) no-repeat,
+    linear-gradient(#555 0 0) center / var(--u3) 100% no-repeat;
+}
+
+.anvil-name-field {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin-bottom: var(--u2);
+}
+
+.anvil-cost {
+  grid-column: 1 / -1;
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: #45a41f;
+  text-shadow: var(--mc-shadow-soft);
+}
+
+.anvil-cost.too-expensive { color: #ff5050; }
+
+/* ---- Enchanting table ---------------------------------------------------- */
+.enchant-table {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u2);
+  width: calc(var(--gs) * 166px);
+  max-width: 100%;
+}
+
+.enchant-offer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--u4);
+  height: var(--u20);
+  padding: 0 var(--u4) 0 var(--u18);
+  background-color: #74665a;
+  background-image: linear-gradient(90deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0));
+  color: #d8d0c0;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  box-shadow:
+    inset var(--u) var(--u) 0 rgba(255, 255, 255, 0.16),
+    inset var(--un) var(--un) 0 rgba(0, 0, 0, 0.55),
+    0 0 0 var(--u) #000;
+  text-shadow: var(--mc-shadow-soft);
+}
+
+.enchant-offer:hover { background-color: #8b7a6a; color: #fff8e0; }
+
+.enchant-offer.disabled {
+  background-color: #4b4640;
+  color: #6f6a63;
+  cursor: not-allowed;
+}
+
+/* Lapis cost badge on the left of each row. */
+.enchant-lapis {
+  position: absolute;
+  left: var(--u3);
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--u12);
+  height: var(--u12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-xs);
+  color: #ffffff;
+  background: radial-gradient(circle at 40% 35%, #4a72d8 0 45%, #1f3f9c 60% 100%);
+  box-shadow: 0 0 0 var(--u) rgba(0, 0, 0, 0.6);
+}
+
+/* The Standard Galactic gibberish line. */
+.enchant-runes {
+  flex: 1 1 auto;
+  font-style: italic;
+  letter-spacing: calc(var(--gs) * 0.6px);
+  color: #b9ae9c;
+  opacity: 0.85;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.enchant-level {
+  color: #7fff2a;
+  font-size: var(--fs);
+  text-shadow: var(--mc-outline-text);
+}
+
+.enchant-hint {
+  font-size: var(--fs-xs);
+  color: #6f6a63;
+  text-align: center;
+}
+
+.enchant-offer:hover .enchant-hint { color: #d8d0c0; }
+
+/* ---- Brewing stand ------------------------------------------------------- */
+.brewing-stand {
+  display: grid;
+  grid-template-columns: var(--slot) var(--u16) var(--slot);
+  grid-template-rows: var(--slot) var(--u24) var(--slot);
+  align-items: center;
+  justify-items: center;
+  gap: var(--u2);
+}
+
+.brewing-stand .brew-ingredient { grid-area: 1 / 2; }
+.brewing-stand .brew-fuel { grid-area: 1 / 1; }
+.brewing-stand .brew-arrow { grid-area: 2 / 2; }
+.brewing-stand .brew-bubbles { grid-area: 2 / 1; }
+.brewing-stand .brew-bottles {
+  grid-area: 3 / 1 / 4 / 4;
+  display: flex;
+  gap: var(--u6);
+}
+
+/* Vertical brewing progress arrow, fills downward. */
+.brew-arrow {
+  position: relative;
+  width: var(--u8);
+  height: calc(var(--gs) * 28px);
+}
+
+.brew-arrow::before,
+.brew-arrow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(30% 0, 70% 0, 70% 66%, 100% 66%, 50% 100%, 0 66%, 30% 66%);
+}
+
+.brew-arrow::before { background: #5a5a5a; }
+
+.brew-arrow::after {
+  background: linear-gradient(
+    180deg,
+    #d8c8ff 0 calc(var(--progress, 0) * 100%),
+    transparent calc(var(--progress, 0) * 100%) 100%
+  );
+}
+
+/* Blaze-powder bubbles column. */
+.brew-bubbles {
+  width: var(--u12);
+  height: var(--u20);
+  background-color: #2a2a2a;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(120, 200, 255, 0.85) 0 var(--u2),
+    transparent var(--u2) var(--u6)
+  );
+  background-size: 100% var(--u6);
+  box-shadow: inset 0 0 0 var(--u) #000;
+  opacity: calc(0.25 + var(--fuel, 0) * 0.75);
+  animation: mc-bubbles 1.1s linear infinite;
+}
+
+@keyframes mc-bubbles {
+  from { background-position: 0 0; }
+  to { background-position: 0 calc(var(--gs) * -6px); }
+}
+
+/* ---- Villager trading ---------------------------------------------------- */
+.trading {
+  display: grid;
+  grid-template-columns: calc(var(--gs) * 100px) 1fr;
+  gap: var(--u6);
+  min-height: 0;
+}
+
+.trade-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u2);
+  max-height: calc(var(--gs) * 120px);
+  padding-right: var(--u2);
+}
+
+.trade-row {
+  display: flex;
+  align-items: center;
+  gap: var(--u2);
+  padding: var(--u);
+  background: rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 var(--u) rgba(0, 0, 0, 0.35);
+}
+
+.trade-row:hover { background: rgba(255, 255, 255, 0.22); }
+
+.trade-row.selected {
+  background: rgba(255, 255, 255, 0.3);
+  box-shadow: inset 0 0 0 var(--u) #ffffff;
+}
+
+.trade-row.locked {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.trade-arrow {
+  width: var(--u12);
+  height: var(--u8);
+  background: #4a4a4a;
+  clip-path: polygon(0 30%, 60% 30%, 60% 0, 100% 50%, 60% 100%, 60% 70%, 0 70%);
+}
+
+.trade-row.locked .trade-arrow {
+  background: #b03a2e;
+  clip-path: polygon(
+    20% 0, 50% 30%, 80% 0, 100% 20%, 70% 50%, 100% 80%,
+    80% 100%, 50% 70%, 20% 100%, 0 80%, 30% 50%, 0 20%
+  );
+}
+
+.villager-level {
+  font-size: var(--fs-sm);
+  color: #dcd7c4;
+  text-shadow: var(--mc-shadow);
+}
+
+.trade-xp {
+  width: calc(var(--gs) * 100px);
+  height: var(--u5);
+  background: #1b1b1b;
+  box-shadow: 0 0 0 var(--u) #000;
+}
+
+.trade-xp > div {
+  height: 100%;
+  width: calc(var(--value, 0) * 100%);
+  background: var(--mc-xp);
+}
+
+/* ---- Creative tabs ------------------------------------------------------- */
+.creative-tabs {
+  display: flex;
+  gap: var(--u2);
+  margin-bottom: var(--un2);
+  flex-wrap: wrap;
+}
+
+.creative-tab {
+  position: relative;
+  width: var(--u24);
+  height: var(--u24);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #9d9d9d;
+  cursor: pointer;
+  box-shadow:
+    inset var(--u) var(--u) 0 rgba(255, 255, 255, 0.7),
+    inset var(--un) var(--un) 0 rgba(70, 70, 70, 0.8),
+    0 0 0 var(--u) #000;
+  transition: background-color 0.08s linear, transform 0.08s ease-out;
+}
+
+.creative-tab canvas,
+.creative-tab img { width: var(--slot-icon); height: var(--slot-icon); }
+
+.creative-tab:hover { background-color: #b8b8b8; }
+
+.creative-tab.active {
+  background-color: var(--mc-gui);
+  transform: translateY(var(--u2));
+  z-index: 2;
+}
+
+/* ---- Recipe book --------------------------------------------------------- */
+.recipe-book {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u4);
+  width: calc(var(--gs) * 140px);
+  padding: var(--u4);
+  background: rgba(0, 0, 0, 0.28);
+  box-shadow: inset 0 0 0 var(--u) rgba(0, 0, 0, 0.5);
+}
+
+.recipe-search { width: 100%; }
+
+.recipe-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, var(--slot));
+  gap: var(--u2);
+  max-height: calc(var(--gs) * 110px);
+  overflow-y: auto;
+}
+
+.recipe-entry {
+  position: relative;
+  width: var(--slot);
+  height: var(--slot);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(180, 180, 180, 0.35);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 var(--u) rgba(0, 0, 0, 0.35);
+}
+
+.recipe-entry:hover { background: rgba(255, 255, 255, 0.55); }
+
+.recipe-entry.locked {
+  filter: grayscale(1) brightness(0.5);
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   6. MENUS
+   ========================================================================== */
+
+/* Tiled dirt: a brown base, two checkerboards for granularity, and a dark
+   wash so the buttons read on top. Pure gradients, no texture file. */
+.menu-bg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--u6);
+  padding: var(--u12);
+  overflow: hidden auto;
+  background-color: var(--mc-dirt);
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.62)),
+    repeating-conic-gradient(rgba(0, 0, 0, 0.22) 0% 25%, transparent 0% 50%),
+    repeating-conic-gradient(rgba(255, 255, 255, 0.10) 0% 25%, transparent 0% 50%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.16) 0 var(--u),
+      transparent var(--u) var(--tile)
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.16) 0 var(--u),
+      transparent var(--u) var(--tile)
+    ),
+    linear-gradient(var(--mc-dirt-light) 0 0);
+  background-size:
+    100% 100%,
+    calc(var(--tile) / 2) calc(var(--tile) / 2),
+    calc(var(--tile) / 4) calc(var(--tile) / 4),
+    var(--tile) var(--tile),
+    var(--tile) var(--tile),
+    100% 100%;
+  pointer-events: auto;
+}
+
+/* Optional animated "panorama" for the title screen background. */
+.menu-bg.panorama {
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.55)),
+    linear-gradient(180deg, #79a8ff 0%, #b7d4ff 42%, #4f7c3a 42%, #2f5424 100%);
+  background-size: 100% 100%, 100% 100%;
+  animation: mc-panorama 60s linear infinite alternate;
+}
+
+@keyframes mc-panorama {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 0, 30% 0; }
+}
+
+.menu-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 50% 45%,
+    transparent 45%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+}
+
+/* ---- Logo ---------------------------------------------------------------- */
+.menu-title {
+  position: relative;
+  margin: 0;
+  font-size: var(--fs-huge);
+  font-weight: normal;
+  letter-spacing: calc(var(--gs) * 2px);
+  color: #d8d8d8;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow:
+    var(--u) var(--u) 0 #6a6a6a,
+    var(--u2) var(--u2) 0 #3a3a3a,
+    var(--u3) var(--u3) 0 #1c1c1c,
+    var(--u4) var(--u4) 0 rgba(0, 0, 0, 0.55);
+  animation: mc-title-sway 6s ease-in-out infinite;
+  transform-origin: 50% 80%;
+}
+
+.menu-title .accent {
+  color: #7cbd54;
+  text-shadow:
+    var(--u) var(--u) 0 #3d6b25,
+    var(--u2) var(--u2) 0 #23401a,
+    var(--u3) var(--u3) 0 #10240d;
+}
+
+@keyframes mc-title-sway {
+  0%, 100% { transform: translateY(0) rotate(-0.35deg); }
+  50% { transform: translateY(calc(var(--gs) * -1.2px)) rotate(0.35deg); }
+}
+
+.menu-splash {
+  position: absolute;
+  right: calc(var(--gs) * -22px);
+  bottom: calc(var(--gs) * -6px);
+  color: var(--c-yellow);
+  font-size: var(--fs);
+  text-shadow: var(--mc-shadow);
+  transform: rotate(-18deg);
+  transform-origin: 50% 50%;
+  animation: mc-splash 0.7s ease-in-out infinite alternate;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+@keyframes mc-splash {
+  from { transform: rotate(-18deg) scale(1); }
+  to { transform: rotate(-18deg) scale(1.09); }
+}
+
+/* ---- Menu button column -------------------------------------------------- */
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--u4);
+  width: calc(var(--gs) * 204px);
+  max-width: 100%;
+}
+
+.menu-buttons .mc-button { width: 100%; }
+
+.menu-buttons .mc-row { width: 100%; }
+
+.menu-buttons .mc-row .mc-button { flex: 1 1 0; }
+
+.menu-footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--u4);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 var(--u4);
+  font-size: var(--fs-xs);
+  color: #d8d8d8;
+  text-shadow: var(--mc-shadow);
+  pointer-events: none;
+}
+
+.menu-version,
+.menu-copyright { opacity: 0.85; }
+
+/* ---- World select -------------------------------------------------------- */
+.world-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u2);
+  width: calc(var(--gs) * 240px);
+  max-width: 100%;
+  max-height: 46vh;
+  padding: var(--u2);
+  background: rgba(0, 0, 0, 0.6);
+  box-shadow: inset 0 0 0 var(--u) rgba(255, 255, 255, 0.12);
+}
+
+.world-item {
+  display: flex;
+  align-items: center;
+  gap: var(--u4);
+  padding: var(--u3);
+  background: rgba(24, 24, 26, 0.85);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 var(--u) rgba(0, 0, 0, 0.7);
+}
+
+.world-item:hover {
+  background: rgba(58, 58, 62, 0.9);
+  box-shadow: inset 0 0 0 var(--u) rgba(255, 255, 255, 0.4);
+}
+
+.world-item.selected {
+  background: rgba(64, 74, 54, 0.95);
+  box-shadow: inset 0 0 0 var(--u) #ffffff;
+}
+
+/* A tiny grass block thumbnail, drawn with gradients when there is no canvas. */
+.world-icon {
+  width: var(--u24);
+  height: var(--u24);
+  flex: 0 0 auto;
+  background:
+    linear-gradient(#7cbd54 0 0) 0 0 / 100% 30% no-repeat,
+    linear-gradient(#8b6a44 0 0) 0 30% / 100% 70% no-repeat,
+    #6b4c31;
+  box-shadow: inset 0 0 0 var(--u) rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.world-icon canvas,
+.world-icon img { width: 100%; height: 100%; }
+
+.world-name {
+  font-size: var(--fs-sm);
+  color: #ffffff;
+  text-shadow: var(--mc-shadow);
+}
+
+.world-meta {
+  font-size: var(--fs-xs);
+  color: var(--c-gray);
+  text-shadow: var(--mc-shadow);
+}
+
+/* ---- Settings ------------------------------------------------------------ */
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--u4);
+  width: calc(var(--gs) * 320px);
+  max-width: 100%;
+  max-height: 56vh;
+  padding: var(--u2);
+}
+
+.settings-grid.one-column { grid-template-columns: minmax(0, 1fr); }
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--u4);
+  min-width: 0;
+}
+
+.settings-row > .mc-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-row > .mc-slider,
+.settings-row > .mc-button,
+.settings-row > .mc-input { flex: 0 0 auto; }
+
+.settings-category {
+  grid-column: 1 / -1;
+  margin-top: var(--u4);
+  font-size: var(--fs);
+  color: var(--c-yellow);
+  text-shadow: var(--mc-shadow);
+  border-bottom: var(--u) solid rgba(255, 255, 255, 0.18);
+  padding-bottom: var(--u2);
+}
+
+/* ---- Key bindings -------------------------------------------------------- */
+.keybind-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--u4);
+}
+
+.keybind-key {
+  min-width: calc(var(--gs) * 60px);
+  font-size: var(--fs-sm);
+}
+
+.keybind-key.listening {
+  color: var(--c-yellow);
+  box-shadow:
+    inset var(--u) var(--u) 0 0 var(--mc-btn-hi),
+    inset var(--un) var(--un) 0 0 var(--mc-btn-lo),
+    0 0 0 var(--u) #ffffff;
+  animation: mc-effect-blink 0.9s steps(2, end) infinite;
+}
+
+.keybind-key.conflict { color: var(--c-red); }
+
+/* ---- Death screen -------------------------------------------------------- */
+.death-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--u8);
+  padding: var(--u12);
+  pointer-events: auto;
+  background:
+    radial-gradient(ellipse at 50% 45%,
+      rgba(120, 0, 0, 0.32) 0%,
+      rgba(60, 0, 0, 0.72) 55%,
+      rgba(20, 0, 0, 0.92) 100%),
+    rgba(80, 0, 0, 0.4);
+  animation: mc-death-in 0.6s ease-out;
+}
+
+@keyframes mc-death-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.death-title {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: normal;
+  color: #ffffff;
+  text-shadow: var(--mc-shadow), 0 0 var(--u8) rgba(255, 60, 60, 0.6);
+}
+
+.death-message {
+  font-size: var(--fs);
+  color: #ffd8d8;
+  text-shadow: var(--mc-shadow);
+  text-align: center;
+  max-width: calc(var(--gs) * 260px);
+}
+
+.death-score {
+  font-size: var(--fs-sm);
+  color: var(--c-yellow);
+  text-shadow: var(--mc-shadow);
+}
+
+/* Pause menu sits on the dimmed world rather than on dirt. */
+.pause-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--u6);
+  background: rgba(10, 10, 12, 0.62);
+  pointer-events: auto;
+}
+
+/* ==========================================================================
+   7. CHAT
+   ========================================================================== */
+
+#chat-layer.open { pointer-events: auto; }
+
+.chat-log {
+  position: absolute;
+  left: var(--u4);
+  bottom: calc(var(--gs) * 42px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0;
+  width: calc(var(--gs) * 220px);
+  max-width: 70vw;
+  max-height: calc(var(--gs) * 90px);
+  overflow: hidden;
+  pointer-events: none;
+  opacity: var(--chat-opacity, 1);
+}
+
+#chat-layer.open .chat-log {
+  max-height: calc(var(--gs) * 160px);
+  overflow-y: auto;
+  pointer-events: auto;
+}
+
+.chat-line {
+  padding: var(--u) var(--u2);
+  background: var(--mc-chat-bg);
+  color: #ffffff;
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  text-shadow: var(--mc-shadow);
+  word-wrap: break-word;
+  animation: mc-chat-in 0.15s ease-out;
+  transition: opacity 0.6s linear;
+}
+
+.chat-line.system { color: var(--c-yellow); }
+.chat-line.error { color: var(--c-red); }
+.chat-line.whisper { color: var(--c-light_purple); font-style: italic; }
+
+/* Old lines fade out; .fading is set by chat.js as messages age out. */
+.chat-line.fading { opacity: 0; }
+.chat-line.dim { opacity: 0.5; }
+
+#chat-layer.open .chat-line {
+  opacity: 1 !important;
+  background: rgba(0, 0, 0, 0.62);
+}
+
+@keyframes mc-chat-in {
+  from { opacity: 0; transform: translateX(calc(var(--gs) * -6px)); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.chat-input {
+  position: absolute;
+  left: var(--u4);
+  right: var(--u4);
+  bottom: var(--u4);
+  display: flex;
+  align-items: center;
+  gap: var(--u2);
+  padding: var(--u2);
+  background: rgba(0, 0, 0, 0.62);
+  box-shadow: inset 0 0 0 var(--u) rgba(255, 255, 255, 0.2);
+  pointer-events: auto;
+}
+
+.chat-input-field {
+  flex: 1 1 auto;
+  min-height: var(--u16);
+  padding: 0 var(--u2);
+  border: 0;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+  color: #ffffff;
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-shadow: var(--mc-shadow);
+  caret-color: #ffffff;
+}
+
+.chat-suggestions {
+  position: absolute;
+  left: var(--u4);
+  bottom: calc(var(--gs) * 24px);
+  min-width: calc(var(--gs) * 80px);
+  max-height: calc(var(--gs) * 80px);
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.82);
+  box-shadow: 0 0 0 var(--u) rgba(255, 255, 255, 0.18);
+  pointer-events: auto;
+}
+
+.chat-suggestion {
+  padding: var(--u) var(--u3);
+  font-size: var(--fs-sm);
+  color: #b9b9b9;
+  text-shadow: var(--mc-shadow);
+  cursor: pointer;
+}
+
+.chat-suggestion:hover { color: #ffffff; background: rgba(255, 255, 255, 0.12); }
+
+.chat-suggestion.selected {
+  color: var(--c-yellow);
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* ==========================================================================
+   8. DEBUG OVERLAY (F3)
+   ========================================================================== */
+
+#debug-layer {
+  font-family: var(--mc-font);
+  font-size: calc(var(--gs) * 5.5px);
+  line-height: 1.35;
+}
+
+.debug-left,
+.debug-right {
+  position: absolute;
+  top: var(--u2);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  max-width: 48vw;
+  pointer-events: none;
+  white-space: pre;
+}
+
+.debug-left { left: var(--u2); }
+
+.debug-right {
+  right: var(--u2);
+  align-items: flex-end;
+  text-align: right;
+}
+
+.debug-line {
+  padding: 0 var(--u);
+  background: var(--mc-debug-bg);
+  color: #e8e8e8;
+  text-shadow: var(--mc-shadow);
+}
+
+.debug-line.warn { color: var(--c-yellow); }
+.debug-line.bad { color: var(--c-red); }
+.debug-line.good { color: var(--c-green); }
+.debug-line.blank { background: transparent; min-height: var(--u4); }
+.debug-line.header { color: var(--c-aqua); }
+
+/* Frame-time graph strip along the bottom. */
+.debug-graph {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--gs) * 30px);
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.debug-graph > span {
+  flex: 0 0 auto;
+  width: calc(var(--gs) * 1px);
+  background: var(--bar-color, #63d13a);
+  height: calc(var(--bar, 0.1) * 100%);
+}
+
+.debug-pie {
+  position: absolute;
+  right: var(--u8);
+  bottom: var(--u8);
+  width: calc(var(--gs) * 50px);
+  height: calc(var(--gs) * 50px);
+  border-radius: 50%;
+  background: conic-gradient(#63d13a 0 40%, #d1b13a 40% 70%, #d13a3a 70% 100%);
+  box-shadow: 0 0 0 var(--u) rgba(0, 0, 0, 0.6);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   9. BOOT SCREEN
+   ========================================================================== */
+
+#boot-screen {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-boot);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #14161c;
+  background-image:
+    radial-gradient(ellipse at 50% 38%, rgba(70, 120, 60, 0.22), transparent 62%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.028) 0 2px,
+      transparent 2px 4px
+    );
+  opacity: 1;
+  transition: opacity 0.6s ease;
+}
+
+#boot-screen.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.6s ease, visibility 0s linear 0.6s;
+}
+
+.boot-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--gs) * 7px);
+  padding: var(--u12);
+  text-align: center;
+}
+
+.boot-title {
+  margin: 0;
+  font-family: var(--mc-font);
+  font-size: clamp(28px, 6vw, 64px);
+  font-weight: normal;
+  letter-spacing: 0.14em;
+  color: #dcdcdc;
+  text-shadow:
+    2px 2px 0 #666,
+    4px 4px 0 #2f2f2f,
+    6px 6px 0 rgba(0, 0, 0, 0.55);
+}
+
+.boot-title span {
+  color: #7cbd54;
+  text-shadow:
+    2px 2px 0 #3d6b25,
+    4px 4px 0 #1d3a12,
+    6px 6px 0 rgba(0, 0, 0, 0.55);
+}
+
+.boot-bar {
+  position: relative;
+  width: min(70vw, 420px);
+  height: 22px;
+  background: #0d0f13;
+  box-shadow:
+    inset 2px 2px 0 rgba(0, 0, 0, 0.9),
+    inset -2px -2px 0 rgba(255, 255, 255, 0.16),
+    0 0 0 2px #000;
+  overflow: hidden;
+}
+
+.boot-bar-fill {
+  height: 100%;
+  width: 0%;
+  background-color: #5b8731;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.18) 0 8px,
+    rgba(255, 255, 255, 0) 8px 16px
+  );
+  background-size: 22px 22px;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.35);
+  transition: width 0.25s ease-out;
+  animation: mc-boot-stripes 0.9s linear infinite;
+}
+
+@keyframes mc-boot-stripes {
+  from { background-position: 0 0; }
+  to { background-position: 22px 0; }
+}
+
+.boot-status {
+  font-family: var(--mc-font);
+  font-size: clamp(11px, 1.6vw, 15px);
+  color: #b8c0b0;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.7);
+  min-height: 1.4em;
+  max-width: min(86vw, 620px);
+  word-break: break-word;
+}
+
+/* ==========================================================================
+   10. TOUCH CONTROLS
+   Rendered by core/input.js, which also inline-styles geometry. These rules
+   supply the look and are the styling contract for any UI-built touch pad.
+   ========================================================================== */
+
+.touch-controls {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-touch);
+  pointer-events: none;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.touch-stick,
+.touch-stick-base {
+  position: absolute;
+  width: calc(var(--gs) * 44px);
+  height: calc(var(--gs) * 44px);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%,
+      rgba(255, 255, 255, 0.06) 0 60%,
+      rgba(255, 255, 255, 0.14) 62% 100%),
+    rgba(20, 20, 24, 0.3);
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.35),
+    0 0 0 2px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.touch-knob,
+.touch-stick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--gs) * 18px);
+  height: calc(var(--gs) * 18px);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 38% 32%,
+    rgba(255, 255, 255, 0.85) 0 30%,
+    rgba(220, 220, 228, 0.55) 40% 100%
+  );
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.touch-stick-zone {
+  position: absolute;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.touch-btn {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc(var(--gs) * 20px);
+  min-height: calc(var(--gs) * 20px);
+  color: #ffffff;
+  background: rgba(24, 24, 28, 0.42);
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.32),
+    0 0 0 2px rgba(0, 0, 0, 0.4);
+  border-radius: calc(var(--gs) * 3px);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.touch-btn:active,
+.touch-btn.active {
+  background: rgba(200, 210, 220, 0.55);
+  color: #101010;
+}
+
+/* Only coarse pointers get the pad. .force-show overrides for hybrid devices. */
+@media (hover: hover) and (pointer: fine) {
+  .touch-controls:not(.force-show) { display: none; }
+}
+
+/* ==========================================================================
+   11. FULL-SCREEN EFFECT OVERLAYS
+   Each is driven by --fx (0..1); .show is a convenience that sets it to 1.
+   ========================================================================== */
+
+.fx-damage,
+.fx-portal,
+.fx-underwater,
+.fx-lava,
+.fx-blind,
+.fx-freeze,
+.fx-nausea,
+.fx-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--fx, 0);
+  transition: opacity 0.22s linear;
+  z-index: 3;
+}
+
+.fx-damage.show,
+.fx-portal.show,
+.fx-underwater.show,
+.fx-lava.show,
+.fx-blind.show,
+.fx-freeze.show,
+.fx-nausea.show,
+.fx-vignette.show { --fx: 1; }
+
+.fx-damage {
+  background:
+    radial-gradient(ellipse at 50% 50%,
+      rgba(180, 0, 0, 0.08) 30%,
+      rgba(150, 0, 0, 0.62) 100%);
+  transition: opacity 0.1s linear;
+}
+
+.fx-damage.flash { animation: mc-hurt 0.45s ease-out; }
+
+@keyframes mc-hurt {
+  0% { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+
+.fx-portal {
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(ellipse at 50% 50%,
+      rgba(160, 60, 220, 0.55) 0%,
+      rgba(60, 10, 110, 0.75) 60%,
+      rgba(20, 0, 40, 0.9) 100%),
+    repeating-conic-gradient(
+      from 0deg,
+      rgba(200, 120, 255, 0.18) 0deg 6deg,
+      transparent 6deg 12deg
+    );
+  animation: mc-portal-spin 24s linear infinite;
+}
+
+@keyframes mc-portal-spin {
+  from { transform: rotate(0deg) scale(1.4); }
+  to { transform: rotate(360deg) scale(1.4); }
+}
+
+.fx-underwater {
+  background:
+    linear-gradient(rgba(24, 72, 150, 0.42), rgba(10, 40, 110, 0.55)),
+    repeating-linear-gradient(
+      12deg,
+      rgba(255, 255, 255, 0.04) 0 6px,
+      transparent 6px 22px
+    );
+  background-size: 100% 100%, 200% 200%;
+  animation: mc-caustics 7s linear infinite alternate;
+}
+
+@keyframes mc-caustics {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 0, 60px 40px; }
+}
+
+.fx-lava {
+  background: radial-gradient(
+    ellipse at 50% 62%,
+    rgba(255, 140, 30, 0.9) 0%,
+    rgba(190, 60, 8, 0.96) 45%,
+    rgba(90, 18, 0, 0.99) 100%
+  );
+  animation: mc-lava-pulse 2.2s ease-in-out infinite alternate;
+}
+
+@keyframes mc-lava-pulse {
+  from { filter: brightness(0.92); }
+  to { filter: brightness(1.12); }
+}
+
+.fx-blind {
+  background: radial-gradient(
+    circle at 50% 50%,
+    transparent 0%,
+    rgba(0, 0, 0, 0.55) 18%,
+    rgba(0, 0, 0, 0.99) 42%
+  );
+  transition: opacity 0.8s linear;
+}
+
+.fx-freeze {
+  background:
+    radial-gradient(ellipse at 50% 50%,
+      transparent 40%,
+      rgba(150, 210, 255, 0.55) 100%),
+    repeating-linear-gradient(
+      65deg,
+      rgba(255, 255, 255, 0.1) 0 3px,
+      transparent 3px 14px
+    );
+}
+
+.fx-nausea {
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    rgba(90, 190, 110, 0.12) 30%,
+    rgba(40, 120, 60, 0.35) 100%
+  );
+  animation: mc-nausea 5s ease-in-out infinite;
+}
+
+@keyframes mc-nausea {
+  0%, 100% { transform: rotate(-2.5deg) scale(1.06); }
+  50% { transform: rotate(2.5deg) scale(1.12); }
+}
+
+/* Always-on subtle darkening at the screen edges. */
+.fx-vignette {
+  --fx: 1;
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    transparent 52%,
+    rgba(0, 0, 0, 0.42) 100%
+  );
+  mix-blend-mode: multiply;
+  z-index: 2;
+}
+
+/* ==========================================================================
+   12. RESPONSIVE + ACCESSIBILITY
+   ========================================================================== */
+
+/* What "Auto" resolves to, and a hard cap so an explicit 4x never overflows
+   a small window. Both feed --gs at the top of the file. */
+@media (min-width: 1900px) and (min-height: 1000px) {
+  :root { --gui-scale-auto: 4; }
+}
+
+@media (max-width: 1500px), (max-height: 860px) {
+  :root { --gui-scale-auto: 3; }
+}
+
+@media (max-width: 1080px), (max-height: 720px) {
+  :root { --gui-scale-auto: 2; --gui-scale-cap: 3; }
+}
+
+@media (max-width: 760px), (max-height: 520px) {
+  :root { --gui-scale-auto: 2; --gui-scale-cap: 2; }
+}
+
+@media (max-width: 460px), (max-height: 380px) {
+  :root { --gui-scale-auto: 1; --gui-scale-cap: 2; }
+}
+
+/* Narrow layouts: stack the two-column screens and shrink fixed widths. */
+@media (max-width: 760px) {
+  .settings-grid { grid-template-columns: minmax(0, 1fr); }
+  .trading { grid-template-columns: minmax(0, 1fr); }
+  .recipe-book { width: 100%; }
+  .menu-buttons,
+  .world-list,
+  .settings-grid { width: min(100%, calc(var(--gs) * 220px)); }
+  .chat-log { max-width: 86vw; }
+  .effect-icons { max-width: 70vw; }
+  .screen { padding: var(--u4); }
+}
+
+/* Very short windows: pull the HUD in so nothing clips off the bottom. */
+@media (max-height: 420px) {
+  .chat-log { max-height: calc(var(--gs) * 50px); }
+  .debug-graph { display: none; }
+}
+
+/* Respect the OS "reduce motion" preference: keep the UI, drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .menu-title,
+  .menu-splash,
+  .fx-portal,
+  .fx-nausea,
+  .fx-underwater,
+  .boot-bar-fill { animation: none !important; }
+
+  .menu-title { transform: none; }
+  .menu-splash { transform: rotate(-18deg); }
+  .fx-portal { transform: scale(1.4); }
+  .fx-nausea { transform: none; }
+}
+
+/* Higher-contrast mode: harden the bevels so shapes stay readable. */
+@media (prefers-contrast: more) {
+  :root {
+    --mc-shadow-color: #000000;
+    --mc-chat-bg: rgba(0, 0, 0, 0.8);
+    --mc-debug-bg: rgba(0, 0, 0, 0.8);
+    --mc-screen-dim: rgba(0, 0, 0, 0.86);
+  }
+
+  .mc-button { box-shadow:
+      inset var(--u) var(--u) 0 0 #ffffff,
+      inset var(--un) var(--un) 0 0 #000000,
+      0 0 0 var(--u) #000000; }
+}
+
+/* Keyboard focus must always be visible even though the game is mouse-first. */
+:focus-visible {
+  outline: var(--u2) solid #ffffff;
+  outline-offset: var(--u);
+}
+
+/* When the pointer is locked nothing in the UI should show a text cursor. */
+#ui-root:not(.interactive) * { cursor: inherit; }
+#ui-root .mc-button,
+#ui-root .mc-slot,
+#ui-root .mc-tab,
+#ui-root .mc-list-item,
+#ui-root .creative-tab,
+#ui-root .world-item,
+#ui-root .trade-row,
+#ui-root .recipe-entry,
+#ui-root .enchant-offer { cursor: pointer; }
+#ui-root .mc-input,
+#ui-root .chat-input-field { cursor: text; }
