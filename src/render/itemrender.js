@@ -26,9 +26,9 @@ import {
   FACE_DOWN, FACE_UP, FACE_NORTH, FACE_SOUTH, FACE_WEST, FACE_EAST,
   WALK_SPEED, PLAYER_EYE,
 } from '../core/constants.js';
-import { clamp, lerp, prettyName, hsvToRgb } from '../core/util.js';
+import { clamp, prettyName, hsvToRgb } from '../core/util.js';
 import { Game } from '../core/game.js';
-import { getBlock, blockByName, getTexture } from '../world/blocks.js';
+import { blockByName, getTexture } from '../world/blocks.js';
 import { getItem } from '../item/items.js';
 import { Atlas } from './atlas.js';
 import { isEnchanted, listEnchantments } from '../item/enchanting.js';
@@ -406,12 +406,29 @@ function drawBlockIcon(ctx, S, def) {
   }
 }
 
-/** Best flat texture for an item: its own art if the atlas has it. */
+/**
+ * Best flat texture for an item. The item's own name wins when the atlas has
+ * art for it (spawn eggs, tools, flowers); otherwise fall back through the
+ * block's side face and finally the declared texture name.
+ */
 function spriteTextureName(item, def) {
-  if (item && item.name && Atlas.has(item.name)) return item.name;
-  if (def) return getTexture(def.id, 0, FACE_NORTH);
-  if (item && item.texture && Atlas.has(item.texture)) return item.texture;
-  return (item && (item.texture || item.name)) || 'missing';
+  const tries = [];
+  if (item && item.name) tries.push(item.name);
+  if (def) {
+    // blocks.js spells door faces `_lower`/`_upper`; the atlas draws
+    // `_bottom`/`_top`, so try the atlas spelling first.
+    if (def.model === 'door' && typeof def.tex === 'string') tries.push(def.tex + '_bottom');
+    tries.push(getTexture(def.id, 0, FACE_NORTH));
+  }
+  if (item && item.texture) tries.push(item.texture);
+  for (let i = 0; i < tries.length; i++) {
+    const t = tries[i];
+    if (typeof t === 'string' && t && Atlas.has(t)) return t;
+  }
+  for (let i = tries.length - 1; i >= 0; i--) {
+    if (typeof tries[i] === 'string' && tries[i]) return tries[i];
+  }
+  return 'missing';
 }
 
 /** Doors are two tiles tall: draw them half width so the whole door fits. */
@@ -478,7 +495,13 @@ function renderIcon(itemName) {
     console.error('[itemrender] failed drawing icon for "' + itemName + '"', err);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, ICON, ICON);
-    ctx.drawImage(rawTile('__missing__'), 0, 0, TILE, TILE, 0, 0, ICON, ICON);
+    const q = ICON / 2;
+    for (let yy = 0; yy < 2; yy++) {
+      for (let xx = 0; xx < 2; xx++) {
+        ctx.fillStyle = ((xx ^ yy) & 1) ? '#000000' : '#ff00ff';
+        ctx.fillRect(xx * q, yy * q, q, q);
+      }
+    }
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   return canvas;
@@ -534,10 +557,7 @@ export function invalidateIconCache() {
   _spriteGeoCache.clear();
   _blockGeoCache.forEach((g) => g.dispose());
   _blockGeoCache.clear();
-  _iconVersion++;
 }
-
-let _iconVersion = 0;
 
 // ---------------------------------------------------------------------------
 // Stack decoration: count, durability bar, enchantment glint
@@ -547,7 +567,7 @@ let _glintCanvas = null;
 let _glintCtx = null;
 
 /** Builds the moving sheen, masked to the icon's own alpha. */
-function glintLayer(icon, size) {
+function glintLayer(icon) {
   if (!_glintCanvas || _glintCanvas.width !== ICON) {
     _glintCanvas = makeCanvas(ICON, ICON);
     _glintCtx = ctx2d(_glintCanvas);
@@ -608,18 +628,16 @@ export function drawStack(ctx, stack, x, y, size = 32) {
   const s = readStack(stack);
   if (!s || !ctx) return;
   const icon = itemIcon(s.item);
-  const smooth = ctx.imageSmoothingEnabled;
+  ctx.save();
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(icon, x, y, size, size);
 
   if (isEnchanted(s)) {
-    const prevOp = ctx.globalCompositeOperation;
-    const prevA = ctx.globalAlpha;
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 0.5;
-    ctx.drawImage(glintLayer(icon, size), x, y, size, size);
-    ctx.globalAlpha = prevA;
-    ctx.globalCompositeOperation = prevOp;
+    ctx.drawImage(glintLayer(icon), x, y, size, size);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
   }
 
   // Durability bar: 13 wide, 2 tall, two pixels in from the bottom-left.
@@ -650,7 +668,7 @@ export function drawStack(ctx, stack, x, y, size = 32) {
     ctx.fillStyle = count === 0 ? '#ff5555' : '#ffffff';
     ctx.fillText(label, tx, ty);
   }
-  ctx.imageSmoothingEnabled = smooth;
+  ctx.restore();
 }
 
 // ---------------------------------------------------------------------------
@@ -1097,6 +1115,7 @@ export class HeldItemView {
 
     this.mesh = null;
     this.glintMesh = null;
+    this._armGeo = null;
     this.kind = 'none';                   // 'block' | 'sprite' | 'arm' | 'none'
     this.currentName = null;
     this.currentEnchanted = false;
@@ -1228,19 +1247,23 @@ export class HeldItemView {
   _poseBlock() {
     this.model.position.set(0, 0, 0);
     this.model.rotation.set(0.12, Math.PI * 0.25, 0);
-    this.model.scale.setScalar(0.42);
+    this.model.scale.setScalar(0.38);
   }
 
-  /** Handheld pose: sprite plane turned edge-on-ish and tilted like a tool. */
+  /** Handheld pose: sprite plane turned slightly and tilted like a tool. */
   _poseSprite() {
     this.model.position.set(0, -0.02, 0);
     this.model.rotation.set(0, -Math.PI * 0.11, Math.PI * 0.16);
-    this.model.scale.setScalar(0.62);
+    this.model.scale.setScalar(0.48);
   }
 
+  /**
+   * The bare arm hangs from the origin (the shoulder) and is swung forward and
+   * inward so it enters the frame from the bottom-right corner.
+   */
   _poseArm() {
-    this.model.position.set(-0.06, 0.14, 0.1);
-    this.model.rotation.set(-1.05, -0.35, -0.42);
+    this.model.position.set(-0.04, 0.12, 0.06);
+    this.model.rotation.set(1.0, 0.15, -0.45);
     this.model.scale.setScalar(1);
   }
 
@@ -1278,9 +1301,11 @@ export class HeldItemView {
     // The camera only renders its children when it is in the scene graph.
     if (this.camera && !this.camera.parent && Game.scene) Game.scene.add(this.camera);
 
+    // main.js may park the F5 camera mode on Game.perspective; 0 / absent is
+    // first person, which is the only mode that shows a hand.
     const perspective = Game.perspective | 0;
     const spectator = !!(player && player.gameMode === 'spectator');
-    const visible = this.enabled && perspective === 0 && !spectator && !(Game.ui && Game.ui.hideHand);
+    const visible = this.enabled && perspective === 0 && !spectator;
     this.group.visible = visible;
     if (!visible) return;
 
@@ -1353,7 +1378,7 @@ export class HeldItemView {
     let rx = 0, ry = 0, rz = 0;
     let scale = 1;
 
-    if (this.kind === 'arm') { px = i * 0.52; py = -0.62; pz = -0.55; }
+    if (this.kind === 'arm') { px = i * 0.52; py = -0.62 - this.equip * 0.6; pz = -0.55; }
 
     // --- walk bob ---------------------------------------------------------
     if (this.bobAmount > 0.001) {
@@ -1366,7 +1391,7 @@ export class HeldItemView {
     }
 
     // --- use animations ---------------------------------------------------
-    if (usingNow && useAction === 'eat' || usingNow && useAction === 'drink') {
+    if (usingNow && (useAction === 'eat' || useAction === 'drink')) {
       const dur = Math.max(1, item.useDuration || 32);
       const remaining = Math.max(0, dur - useTicks);
       const f1 = clamp(remaining / dur, 0, 1);

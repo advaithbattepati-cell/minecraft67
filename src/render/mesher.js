@@ -83,6 +83,14 @@ const TINT_IDS = { grass: 1, foliage: 2, water: 3, redstone: 4, birch: 5, spruce
 const SELF_CULL_NAMES = new Set([
   'ice', 'packed_ice', 'blue_ice', 'frosted_ice', 'slime_block', 'honey_block', 'barrier',
 ]);
+/**
+ * Dense cutout families whose interior faces are never actually visible but
+ * which would otherwise emit all six faces per block. A solid 16-cube of leaves
+ * costs 24576 quads unculled versus 1536 culled, and a dark forest is mostly
+ * leaf volume, so this is the difference between a smooth framerate and a
+ * slideshow. Minecraft's "Fast" graphics setting does exactly the same thing.
+ */
+const SELF_CULL_SUFFIXES = ['_leaves', '_wart_block', '_mushroom_block'];
 const BIRCH_TINT = 0x80a755;
 const SPRUCE_TINT = 0x619961;
 
@@ -102,7 +110,9 @@ for (let i = 0; i < NB; i++) {
   } else {
     T_TINT_FACES[i] = 0x3f;
   }
-  T_SELF_CULL[i] = (T_PASS[i] === 2 || d.name.indexOf('glass') >= 0 || SELF_CULL_NAMES.has(d.name)) ? 1 : 0;
+  T_SELF_CULL[i] = (T_PASS[i] === 2 || d.name.indexOf('glass') >= 0
+    || SELF_CULL_NAMES.has(d.name)
+    || SELF_CULL_SUFFIXES.some((sfx) => d.name.endsWith(sfx))) ? 1 : 0;
 }
 
 /** Pre-resolved rgb for the constant tints, so the hot path never allocates. */
@@ -862,9 +872,10 @@ function emitFluid(b, id, meta, pi) {
     const uv = topUV;
     setP(0, 0, h01, 1); setP(1, 1, h11, 1); setP(2, 1, h10, 0); setP(3, 0, h00, 0);
     setUV(0, uv.u0, uv.v1); setUV(1, uv.u1, uv.v1); setUV(2, uv.u1, uv.v0); setUV(3, uv.u0, uv.v0);
+    // The translucent material is double-sided, so the surface is already
+    // visible from below when you swim under it. Emitting an explicit back
+    // face here just doubled every water quad in the chunk.
     emitQuad(b, 0, 1, 0, false);
-    // Fluid surfaces are visible from below too when you swim under them.
-    emitQuadBack(b, 0, -1, 0);
   }
   // bottom
   if (visible(id, pBlocks[pi - PSY])) {
@@ -892,7 +903,6 @@ function emitFluid(b, id, meta, pi) {
     setP(0, ax, 0, az); setP(1, bx, 0, bz); setP(2, bx, hb, bz); setP(3, ax, ha, az);
     setUV(0, uv.u0, uv.v1); setUV(1, uv.u1, uv.v1); setUV(2, uv.u1, vTopB); setUV(3, uv.u0, vTopA);
     emitQuad(b, FACE_NX[f], FACE_NY[f], FACE_NZ[f], false);
-    emitQuadBack(b, -FACE_NX[f], -FACE_NY[f], -FACE_NZ[f]);
   }
 }
 
