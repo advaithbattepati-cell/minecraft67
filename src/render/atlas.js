@@ -2665,3 +2665,394 @@ def('bundle', (ctx, rng) => { clear(ctx); rect(ctx, 3, 5, 10, 9, 0xa06540); rect
 def('infested_stone', (ctx, rng) => { drawInto(ctx, 'stone'); speckle(ctx, rng, 0x5a5a5a, 8); });
 def('vault_top', (ctx, rng) => { noise(ctx, rng, 0x3a4048, 0.1); border(ctx, 0x22262c, 0); });
 def('glow_item_frame_pane', (ctx) => { clear(ctx); border(ctx, 0x49c4bd, 2); });
+
+// ===========================================================================
+// Canonical block-face names blocks.js asks for that no section above drew.
+//
+// Everything here is additive: no existing texture is removed, renamed or
+// renumbered. Where a name is only a second canonical spelling of a tile that
+// is already drawn in this file (the `_lower`/`_upper` door halves, the
+// `<stage>_cut_copper` word order, `anvil_base`, `beehive_top`, ...) it is
+// registered with defineAlias so the two spellings stay pixel-identical and
+// cost one tile between them.
+// ===========================================================================
+
+// --- invisible blocks ------------------------------------------------------
+// `air` and `light` have model 'none' and are never meshed, but getTexture()
+// still names them, so give them real (empty / marker) tiles rather than
+// letting the fallback generator invent noise for them.
+def('air', (ctx) => clear(ctx));
+def('light', (ctx) => {
+  clear(ctx);
+  circle(ctx, 8, 7, 4, 0xffe08a, 0.5);
+  ring(ctx, 8, 7, 4, 0xf9d68f, 0.7, 0.9);
+  px(ctx, 6, 5, 0xfff6cf, 0.9);
+  rect(ctx, 6, 11, 4, 2, 0xb0a070, 0.9);
+  rect(ctx, 6, 13, 4, 1, 0x8a7c58, 0.9);
+});
+
+// --- door halves -----------------------------------------------------------
+// The door model splits a door into two blocks: meta bit 0 clear is the
+// `_lower` half (solid panel plus the handle), set is the `_upper` half (the
+// window). Every 1.20 wooden door has a window in its top half.
+function doorHalf(ctx, rng, planks, planksDark, upper) {
+  plank(ctx, rng, planks, planksDark, 3, true);
+  border(ctx, shade(planksDark, 0.62), 0);
+  border(ctx, shade(planks, 1.1), 1, 0.3);
+  const frame = shade(planksDark, 0.72);
+  const panel = shade(planksDark, 0.8);
+  if (upper) {
+    rect(ctx, 3, 3, 10, 6, frame);           // window, glazed and muntined
+    rect(ctx, 4, 4, 8, 4, 0xc8e0ea, 0.55);
+    rect(ctx, 7, 4, 2, 4, frame);
+    rect(ctx, 4, 5, 8, 1, frame);
+    rect(ctx, 3, 11, 10, 3, shade(planks, 0.92));   // panel under the window
+    rect(ctx, 3, 11, 10, 1, panel); rect(ctx, 3, 13, 10, 1, panel);
+    rect(ctx, 3, 11, 1, 3, panel); rect(ctx, 12, 11, 1, 3, panel);
+    rect(ctx, 1, 1, 2, 2, 0x5a5a5a);         // hinge, at the head of the door
+    rect(ctx, 1, 3, 2, 1, 0x3a3a3a);
+    px(ctx, 12, 14, 0x6a6a6a);
+  } else {
+    rect(ctx, 3, 3, 10, 10, shade(planks, 0.92));
+    border(ctx, shade(planksDark, 0.78), 3);
+    rect(ctx, 5, 5, 6, 6, shade(planks, 1.06));
+    rect(ctx, 1, 11, 2, 2, 0x5a5a5a);        // hinge, at the foot of the door
+    rect(ctx, 1, 13, 2, 1, 0x3a3a3a);
+    rect(ctx, 12, 2, 1, 4, 0x6a6a6a);        // handle, level with the seam
+    px(ctx, 12, 2, 0x9a9a9a);
+    px(ctx, 13, 3, 0x4a4a4a);
+  }
+}
+for (const w of WOODS) {
+  def(w.name + '_door_lower', (ctx, rng) => doorHalf(ctx, rng, w.planks, w.planksDark, false));
+  def(w.name + '_door_upper', (ctx, rng) => doorHalf(ctx, rng, w.planks, w.planksDark, true));
+}
+// Iron doors: flat grey plate, riveted frame, barred window in the top half.
+function ironDoorHalf(ctx, rng, upper) {
+  noise(ctx, rng, 0xc0c0c0, 0.045, { fine: 0.03 });
+  border(ctx, 0x8a8a8a, 0);
+  border(ctx, 0xdcdcdc, 1, 0.35);
+  if (upper) {
+    rect(ctx, 3, 3, 10, 6, 0x9a9a9a);
+    rect(ctx, 4, 4, 8, 4, 0xc8e0ea, 0.5);
+    rect(ctx, 7, 4, 2, 4, 0x9a9a9a);         // barred window
+    rect(ctx, 4, 5, 8, 1, 0x9a9a9a);
+    rect(ctx, 3, 11, 10, 3, 0xb4b4b4);
+    rect(ctx, 3, 11, 10, 1, 0x8f8f8f); rect(ctx, 3, 13, 10, 1, 0x8f8f8f);
+    rect(ctx, 3, 11, 1, 3, 0x8f8f8f); rect(ctx, 12, 11, 1, 3, 0x8f8f8f);
+  } else {
+    rect(ctx, 3, 3, 10, 10, 0xb4b4b4);
+    border(ctx, 0x8f8f8f, 3);
+    rect(ctx, 12, 2, 1, 4, 0x6a6a6a);
+    px(ctx, 12, 2, 0xe8e8e8);
+  }
+  const rivets = upper ? [[1, 1], [14, 1], [1, 8], [14, 8], [1, 14], [14, 14]]
+    : [[1, 1], [14, 1], [1, 7], [14, 7], [1, 14], [14, 14]];
+  for (const [x, y] of rivets) { px(ctx, x, y, 0xeaeaea); px(ctx, x, y + 1, 0x7a7a7a); }
+}
+def('iron_door_lower', (ctx, rng) => ironDoorHalf(ctx, rng, false));
+def('iron_door_upper', (ctx, rng) => ironDoorHalf(ctx, rng, true));
+
+// --- late crop stages ------------------------------------------------------
+// The crop model indexes textures by meta&7, so every crop needs all eight
+// stages even where vanilla reuses one texture across several ages.
+for (let s = 4; s < 8; s++) {
+  const t = (s - 4) / 3;                      // 0..1 across the ripening stages
+  def('carrots_stage' + s, (ctx, rng) => {
+    drawCropStalks(ctx, rng, mix(0x63a83a, 0x7cc24c, t), 13 + Math.round(t * 2), 0xe8801d);
+    const h = 1 + Math.round(t * 2);
+    for (const x of [2, 6, 9, 13]) {
+      rect(ctx, x - 1, 16 - h, 3, h, 0xe8801d);
+      px(ctx, x - 1, 16 - h, 0xf5a24a);
+      px(ctx, x + 1, 15, 0xc25f11);
+    }
+  });
+  def('potatoes_stage' + s, (ctx, rng) => {
+    drawCropStalks(ctx, rng, mix(0x5d9c34, 0x74b845, t), 13 + Math.round(t * 2), 0xd8c470);
+    const h = 1 + Math.round(t * 2);
+    for (const x of [2, 6, 9, 13]) {
+      rect(ctx, x - 1, 16 - h, 3, h, 0xc9a95c);
+      px(ctx, x - 1, 16 - h, 0xe4cd8a);
+      px(ctx, x + 1, 15, 0x9c8340);
+    }
+  });
+  def('beetroots_stage' + s, (ctx, rng) => {
+    drawCropStalks(ctx, rng, mix(0x5d9c34, 0x6fae40, t), 11 + Math.round(t * 2), 0xa82a3c);
+    const h = 1 + Math.round(t * 2);
+    for (const x of [2, 6, 9, 13]) {
+      rect(ctx, x - 1, 16 - h, 3, h, 0xa82a3c);
+      px(ctx, x - 1, 16 - h, 0xcc4356);
+      px(ctx, x + 1, 15, 0x7a1c2a);
+    }
+  });
+}
+// nether wart: vanilla stops at three textures, the later ages stay ripe.
+for (let s = 3; s < 8; s++) {
+  def('nether_wart_stage' + s, (ctx, rng) => {
+    drawCropStalks(ctx, rng, 0xa02024, 14, 0xd03038);
+    for (let i = 0; i < 10; i++) {
+      const x = 1 + rng.int(13), y = 2 + rng.int(12);
+      rect(ctx, x, y, 2, 2, 0xbd2a30);
+      px(ctx, x, y, 0xe0464c);
+      px(ctx, x + 1, y + 1, 0x7a1216);
+    }
+  });
+}
+// cocoa: the pod swells and ripens from green through to orange-brown.
+for (let s = 3; s < 8; s++) {
+  def('cocoa_stage' + s, (ctx, rng) => {
+    clear(ctx);
+    rect(ctx, 7, 0, 2, 4, 0x6b5030);
+    circle(ctx, 8, 9, 5, 0xa2551d);
+    circle(ctx, 8, 9, 3.4, 0xbe6a28);
+    for (let x = 5; x < 12; x += 2) rect(ctx, x, 6, 1, 7, 0x7c3e13, 0.65);
+    px(ctx, 6, 6, 0xd08a4a);
+    px(ctx, 10, 12, 0x6f3810);
+    px(ctx, 7, 5, 0xc07b3a);
+  });
+}
+// melon / pumpkin stems: they lengthen and turn from green to straw yellow.
+for (let s = 0; s < 8; s++) {
+  const t = s / 7;
+  const col = mix(0x4a7a2c, 0xc8b62c, t);
+  const stem = (ctx, rng) => {
+    drawCropStalks(ctx, rng, col, 2 + Math.round(t * 12), null);
+    if (s >= 4) {                              // curling tendrils on older stems
+      const y = 14 - Math.round(t * 8);
+      px(ctx, 4, y, shade(col, 1.15)); px(ctx, 3, y - 1, shade(col, 1.15));
+      px(ctx, 11, y + 2, shade(col, 0.85)); px(ctx, 12, y + 1, shade(col, 0.85));
+    }
+  };
+  def('melon_stem_stage' + s, stem);
+  def('pumpkin_stem_stage' + s, stem);
+}
+// pitcher crop: the bud swells and cracks open over the last three stages.
+for (let s = 5; s < 8; s++) {
+  def('pitcher_crop_stage' + s, (ctx, rng) => {
+    drawCropStalks(ctx, rng, 0x4a7a2c, 15, null);
+    const w = 4 + (s - 5);
+    const x0 = 8 - (w >> 1);
+    rect(ctx, x0, 4, w, 8, 0x8b3f7d);
+    rect(ctx, x0 + 1, 3, w - 2, 2, 0xa04a8f);
+    px(ctx, x0, 11, 0x6a2c5e);
+    if (s >= 7) { rect(ctx, 5, 2, 6, 2, 0xd07ac0); px(ctx, 8, 1, 0xe8a8dc); }
+  });
+}
+// torchflower crop: the seedling stretches, then the flower opens.
+for (let s = 2; s < 8; s++) {
+  const t = (s - 2) / 5;
+  def('torchflower_crop_stage' + s, (ctx, rng) => {
+    drawCropStalks(ctx, rng, 0x4f7a2c, 10 + Math.round(t * 4), null);
+    const cy = 6 - Math.round(t * 2);
+    rect(ctx, 6, cy, 4, 3, mix(0xd8a03c, 0xe86b2c, t));
+    rect(ctx, 7, cy - 1, 2, 1, 0xffd050);
+    if (s >= 6) {
+      rect(ctx, 5, cy + 1, 6, 2, 0xe86b2c);
+      rect(ctx, 7, cy + 1, 2, 2, 0xffd050);
+      px(ctx, 4, cy + 1, 0xc4531d); px(ctx, 11, cy + 2, 0xc4531d);
+    }
+  });
+}
+
+// --- two-block plants, plain names -----------------------------------------
+// The cross model asks for the block's own name, so each of these needs a
+// texture that reads as a whole plant; the `_top`/`_bottom` halves registered
+// further up stay available for the models that split them.
+// tall_grass / large_fern / tall_seagrass / small_dripleaf are biome-tinted,
+// so they are drawn GREYSCALE like every other tinted plant in this file.
+def('tall_grass', (ctx, rng) => {
+  clear(ctx);
+  drawTuft(ctx, rng, GA, GC, 9, 15, 15);
+  for (let x = 3; x < 13; x++) if (rng.next() < 0.5) px(ctx, x, 15, GC);
+});
+def('large_fern', (ctx, rng) => {
+  clear(ctx);
+  rect(ctx, 7, 1, 1, 15, GC);
+  for (let y = 2; y < 15; y += 2) {
+    const w = 1 + (((15 - y) / 2.6) | 0);
+    for (let i = 1; i <= w; i++) { px(ctx, 7 - i, y, GA); px(ctx, 8 + i - 1, y + 1, GB); }
+  }
+  drawTuft(ctx, rng, GA, GC, 3, 15, 7);
+});
+def('tall_seagrass', (ctx, rng) => {
+  clear(ctx);
+  for (let i = 0; i < 6; i++) {
+    let x = 2 + rng.int(12);
+    for (let y = 15; y >= 0; y--) {
+      px(ctx, x, y, y < 4 ? GB : GA);
+      if (rng.next() < 0.3) x += rng.bool() ? 1 : -1;
+    }
+  }
+});
+def('small_dripleaf', (ctx, rng) => {
+  clear(ctx);
+  rect(ctx, 7, 8, 2, 8, GC);
+  circle(ctx, 5, 5, 3.2, GA);
+  circle(ctx, 11, 6, 3.2, GA);
+  circle(ctx, 5, 5, 1.8, GB);
+  circle(ctx, 11, 6, 1.8, GB);
+  px(ctx, 7, 9, GB); px(ctx, 8, 12, GB);
+});
+def('big_dripleaf', (ctx, rng) => {
+  clear(ctx);
+  rect(ctx, 7, 6, 2, 10, 0x6a9143);
+  rect(ctx, 1, 3, 14, 3, 0x5c8a3c);
+  rect(ctx, 2, 2, 12, 1, 0x74a34c);
+  rect(ctx, 3, 6, 10, 1, 0x42682a);
+  px(ctx, 1, 6, 0x42682a); px(ctx, 14, 6, 0x42682a);
+  px(ctx, 6, 10, 0x4c6f2e); px(ctx, 9, 13, 0x4c6f2e);
+  veins(ctx, rng, 0x74a34c, 2, 5);
+});
+def('sunflower', (ctx, rng) => {
+  clear(ctx);
+  rect(ctx, 7, 6, 2, 10, 0x4a7a2c);
+  rect(ctx, 4, 10, 3, 1, 0x59923a);
+  rect(ctx, 9, 13, 3, 1, 0x59923a);
+  circle(ctx, 8, 5, 5, 0xffd23c);
+  circle(ctx, 8, 5, 3.2, 0xd8a01c);
+  circle(ctx, 8, 5, 2, 0x6b4a1c);
+  px(ctx, 7, 4, 0x4a3212); px(ctx, 9, 5, 0x4a3212); px(ctx, 8, 6, 0x4a3212);
+});
+for (const [n, petal, deep] of [['lilac', 0xc79bd6, 0x9a6fb0], ['rose_bush', 0xd8464a, 0xa32c30], ['peony', 0xe8b7dd, 0xb27fa8]]) {
+  def(n, (ctx, rng) => {
+    clear(ctx);
+    drawTuft(ctx, rng, 0x3f6a24, 0x4a7a2c, 8, 15, 13);
+    for (let i = 0; i < 18; i++) {
+      const x = 2 + rng.int(12), y = rng.int(7);
+      px(ctx, x, y, rng.bool() ? petal : deep);
+      px(ctx, x + 1, y + 1, petal);
+    }
+  });
+}
+def('pitcher_plant', (ctx, rng) => {
+  clear(ctx);
+  rect(ctx, 6, 8, 4, 8, 0x4a7a2c);
+  rect(ctx, 6, 8, 1, 8, 0x59923a);
+  rect(ctx, 4, 4, 8, 6, 0x8b3f7d);
+  rect(ctx, 5, 3, 6, 2, 0xa04a8f);
+  rect(ctx, 6, 2, 4, 1, 0xd07ac0);
+  px(ctx, 5, 5, 0xd07ac0); px(ctx, 10, 8, 0x6a2c5e);
+});
+def('azalea', (ctx, rng) => {
+  clear(ctx);
+  rect(ctx, 7, 11, 2, 5, 0x6a5230);            // woody stem
+  rect(ctx, 4, 3, 8, 8, 0x4d6f30);             // leaf mass
+  rect(ctx, 5, 2, 6, 2, 0x5b8a3d);
+  for (let i = 0; i < 70; i++) {
+    const x = 2 + rng.int(12), y = 1 + rng.int(11);
+    px(ctx, x, y, jit(rng, rng.bool() ? 0x5b8a3d : 0x3f6b28, 0.14));
+  }
+});
+def('flowering_azalea', (ctx, rng) => {
+  drawInto(ctx, 'azalea');
+  for (let i = 0; i < 9; i++) {
+    const x = 1 + rng.int(13), y = 1 + rng.int(10);
+    rect(ctx, x, y, 2, 2, 0xd77bd4);
+    px(ctx, x, y, 0xffd7f4);
+  }
+});
+def('bamboo', (ctx, rng) => {
+  clear(ctx);
+  rect(ctx, 6, 0, 4, TILE, 0x88a02c);
+  rect(ctx, 6, 0, 1, TILE, 0xa8c246);
+  rect(ctx, 9, 0, 1, TILE, 0x5f7318);
+  for (let y = 2; y < TILE; y += 6) rect(ctx, 6, y, 4, 1, 0x4e5f14);
+  rect(ctx, 2, 4, 4, 1, 0x6b9c34); px(ctx, 1, 3, 0x76a83c);
+  rect(ctx, 10, 10, 4, 1, 0x6b9c34); px(ctx, 14, 9, 0x76a83c);
+});
+def('bamboo_stage0', (ctx, rng) => {
+  clear(ctx);
+  rect(ctx, 7, 8, 2, 8, 0x88a02c);
+  px(ctx, 7, 8, 0xa8c246);
+  rect(ctx, 5, 6, 2, 3, 0x6b9c34);
+  rect(ctx, 9, 5, 2, 4, 0x76a83c);
+  rect(ctx, 7, 4, 2, 4, 0x5b8a2a);
+  px(ctx, 8, 3, 0x8fc04a);
+});
+def('mangrove_propagule', (ctx, rng) => {
+  clear(ctx);
+  rect(ctx, 7, 0, 2, 3, 0x5c3f2a);             // where it hangs off the leaves
+  rect(ctx, 5, 3, 6, 1, 0x639a3f);
+  rect(ctx, 6, 3, 4, 3, 0x4f7b31);             // little leaf cap
+  rect(ctx, 7, 6, 2, 9, 0x7fa04a);             // the long green shoot
+  rect(ctx, 7, 6, 1, 9, 0x96b95c);
+  px(ctx, 8, 14, 0x5e7a34); px(ctx, 8, 15, 0x4c6429);
+});
+
+// --- shulker box lids ------------------------------------------------------
+const shulkerTop = (c) => (ctx, rng) => {
+  noise(ctx, rng, shade(c, 0.9), 0.05);
+  border(ctx, shade(c, 0.6), 0, 0.8);
+  rect(ctx, 2, 2, 12, 12, shade(c, 1.1));
+  border(ctx, shade(c, 0.68), 2, 0.7);
+  rect(ctx, 5, 5, 6, 6, shade(c, 0.8));
+  rect(ctx, 6, 6, 4, 4, shade(c, 1.2));
+  px(ctx, 6, 6, shade(c, 1.35));
+  speckle(ctx, rng, shade(c, 1.22), 5);
+};
+for (const c of COLORS) def(c + '_shulker_box_top', shulkerTop(WOOL_COLOR[c]));
+def('shulker_box_top', shulkerTop(0x9a7a9a));
+
+// --- trial spawner ---------------------------------------------------------
+const TRIAL_BASE = 0x3f4448, TRIAL_DARK = 0x2b3033, TRIAL_EDGE = 0x585f63;
+def('trial_spawner_bottom', (ctx, rng) => {
+  noise(ctx, rng, TRIAL_DARK, 0.09, { fine: 0.05 });
+  speckle(ctx, rng, shade(TRIAL_DARK, 0.78), 12);
+  border(ctx, 0x1c2124, 0, 0.7);
+});
+def('trial_spawner_top_inactive', (ctx, rng) => {
+  noise(ctx, rng, TRIAL_BASE, 0.08, { fine: 0.05 });
+  border(ctx, 0x22272a, 0);
+  border(ctx, TRIAL_EDGE, 1, 0.55);
+  rect(ctx, 3, 3, 10, 10, 0x23282b);
+  ring(ctx, 8, 8, 3.4, 0x4a5155, 0.8);
+  circle(ctx, 8, 8, 1.6, 0x141a1d);
+  px(ctx, 4, 4, 0x6a7276); px(ctx, 11, 11, 0x15191c);
+});
+def('trial_spawner_side_inactive', (ctx, rng) => {
+  noise(ctx, rng, TRIAL_BASE, 0.08, { fine: 0.05 });
+  border(ctx, 0x22272a, 0);
+  rect(ctx, 2, 2, 12, 12, 0x2a2f33);
+  border(ctx, TRIAL_EDGE, 2, 0.5);
+  rect(ctx, 4, 4, 8, 8, 0x151a1d);             // the barred window
+  for (let x = 5; x < 12; x += 2) rect(ctx, x, 4, 1, 8, 0x39403f, 0.85);
+  rect(ctx, 4, 7, 8, 1, 0x39403f, 0.6);
+  px(ctx, 4, 4, 0x6a7276); px(ctx, 11, 11, 0x111517);
+});
+
+// --- honey block -----------------------------------------------------------
+// Its own name is used on all six faces, so this one has to work everywhere:
+// no directional drip band, just translucent amber with a soft rim.
+def('honey_block', (ctx, rng) => {
+  clear(ctx);
+  rect(ctx, 0, 0, TILE, TILE, 0xdc9226, 0.85);
+  border(ctx, 0xf3b957, 1, 0.6);
+  border(ctx, 0xb87615, 0, 0.8);
+  speckle(ctx, rng, 0xffc65e, 10, 1, 0.7);
+  speckle(ctx, rng, 0xb87615, 6, 1, 0.5);
+});
+
+// --- second canonical spellings of tiles already drawn above ---------------
+defineAlias('exposed_cut_copper', 'cut_exposed_copper');
+defineAlias('weathered_cut_copper', 'cut_weathered_copper');
+defineAlias('oxidized_cut_copper', 'cut_oxidized_copper');
+defineAlias('ancient_debris', 'ancient_debris_side');
+defineAlias('anvil_base', 'anvil');
+defineAlias('beehive_top', 'beehive_end');
+defineAlias('dried_kelp_block', 'dried_kelp_block_side');
+defineAlias('suspicious_sand', 'suspicious_sand_0');
+defineAlias('suspicious_gravel', 'suspicious_gravel_0');
+defineAlias('sniffer_egg_not_cracked_top', 'sniffer_egg_top');
+
+// The `tex` stems of the door and crop models. getTexture() always appends
+// `_lower`/`_upper` or `_stageN` before asking the atlas, so these names never
+// reach a chunk mesh - but they are the names an item icon or a tooltip will
+// reach for, so point each at the frame that best represents the block.
+for (const w of WOODS) defineAlias(w.name + '_door', w.name + '_door_lower');
+defineAlias('iron_door', 'iron_door_lower');
+defineAlias('carrots', 'carrots_stage7');
+defineAlias('potatoes', 'potatoes_stage7');
+defineAlias('beetroots', 'beetroots_stage7');
+defineAlias('cocoa', 'cocoa_stage7');
+defineAlias('pitcher_crop', 'pitcher_crop_stage7');
+defineAlias('torchflower_crop', 'torchflower_crop_stage7');
