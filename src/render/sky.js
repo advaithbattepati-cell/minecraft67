@@ -313,10 +313,14 @@ function makeCloudTexture() {
   const data = img.data;
   const noise = new Noise(0x510ad);
   const detail = new Noise(0x51ad2);
-  const s = 5 / N;
+  // One noise unit must span roughly ten texels, not fifty. At 5/N a single
+  // cloud bank was ~600 blocks across, so from just below the layer it covered
+  // the entire sky as one flat white sheet. 22/N puts banks at 130-260 blocks,
+  // which reads as distinct clouds with sky between them.
+  const s = 22 / N;
   const sample = (x, y) => noise.fbm2(x * s, y * s, 4, 2.1, 0.52);
 
-  const THRESH = 0.045;
+  const THRESH = 0.10;
   for (let y = 0; y < N; y++) {
     const wy = y / N;
     for (let x = 0; x < N; x++) {
