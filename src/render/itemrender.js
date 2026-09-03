@@ -270,6 +270,55 @@ function shapeFor(def) {
   return SHAPES[def.model] || SHAPES.cube;
 }
 
+// ---------------------------------------------------------------------------
+// Texture-name resolution
+//
+// blocks.js and atlas.js are written independently, so a block occasionally
+// asks for a name the atlas spells slightly differently (`azalea` vs
+// `azalea_top`, `white_shulker_box_top` vs `white_shulker_box`). The atlas will
+// happily synthesise a fallback, but a real neighbouring texture always looks
+// better, so try the obvious relatives first.
+// ---------------------------------------------------------------------------
+
+/** Suffixes worth appending, per face; index 6 is the flat-sprite order. */
+const FACE_SUFFIX = [
+  ['_bottom', '_end', '_top', '_side', '_front'],           // down
+  ['_top', '_end', '_side', '_bottom', '_front'],           // up
+  ['_side', '_front', '_north', '_end', '_top', '_bottom'], // north
+  ['_side', '_back', '_south', '_end', '_top', '_bottom'],  // south
+  ['_side', '_west', '_end', '_top', '_bottom', '_front'],  // west
+  ['_side', '_east', '_end', '_top', '_bottom', '_front'],  // east
+  ['_top', '_front', '_side', '_stalk', '_bottom', '_end'], // flat sprite
+];
+
+/** Suffixes worth stripping when the full name is unknown. */
+const TEX_SUFFIXES = [
+  '_top', '_bottom', '_side', '_front', '_back', '_end', '_inner', '_base',
+  '_north', '_south', '_east', '_west', '_lower', '_upper', '_still', '_stem',
+];
+
+/**
+ * Maps a requested texture name onto one the atlas actually has, by adding or
+ * stripping a face suffix. Falls back to the original name, which lets the
+ * atlas generate its deterministic stand-in rather than crashing.
+ */
+function resolveTexture(name, face) {
+  if (typeof name !== 'string' || !name) return 'missing';
+  if (Atlas.has(name)) return name;
+  const add = FACE_SUFFIX[face] || FACE_SUFFIX[FACE_UP];
+  for (let i = 0; i < add.length; i++) if (Atlas.has(name + add[i])) return name + add[i];
+  for (let i = 0; i < TEX_SUFFIXES.length; i++) {
+    const s = TEX_SUFFIXES[i];
+    if (!name.endsWith(s)) continue;
+    const stem = name.slice(0, -s.length);
+    if (!stem) break;
+    if (Atlas.has(stem)) return stem;
+    for (let j = 0; j < add.length; j++) if (Atlas.has(stem + add[j])) return stem + add[j];
+    break;
+  }
+  return name;
+}
+
 /** Resolved tint colour for one face of a block, 0 when untinted. */
 function tintFor(def, face) {
   const t = def.tint;
@@ -289,7 +338,7 @@ function baseTintOf(def) {
 
 /** Finished, shaded 16x16 canvas for one face of one box of a block. */
 function blockFaceTile(def, meta, face, override) {
-  const base = override || getTexture(def.id, meta, face);
+  const base = resolveTexture(override || getTexture(def.id, meta, face), face);
   const overlay = (def.overlay && face !== FACE_UP && face !== FACE_DOWN) ? def.overlay : null;
   return faceTile(base, tintFor(def, face), overlay, overlay ? baseTintOf(def) : 0, FACE_SHADE[face]);
 }
@@ -425,6 +474,13 @@ function spriteTextureName(item, def) {
     const t = tries[i];
     if (typeof t === 'string' && t && Atlas.has(t)) return t;
   }
+  // Nothing matched exactly; let the suffix resolver find a relative.
+  for (let i = 0; i < tries.length; i++) {
+    const t = tries[i];
+    if (typeof t !== 'string' || !t) continue;
+    const r = resolveTexture(t, 6);
+    if (Atlas.has(r)) return r;
+  }
   for (let i = tries.length - 1; i >= 0; i--) {
     if (typeof tries[i] === 'string' && tries[i]) return tries[i];
   }
@@ -478,6 +534,8 @@ function drawSpriteIcon(ctx, S, item, def) {
 function renderIcon(itemName) {
   const canvas = makeCanvas(ICON, ICON);
   const ctx = ctx2d(canvas);
+  // Air is a real registry entry but has to draw as nothing at all.
+  if (itemName === 'air' || itemName === 'cave_air' || itemName === 'void_air') return canvas;
   const item = getItem(itemName);
   const def = item && item.block ? blockByName(item.block) : null;
 
@@ -607,11 +665,14 @@ function durabilityColor(frac) {
   return 'rgb(' + Math.round(r * 255) + ',' + Math.round(g * 255) + ',' + Math.round(b * 255) + ')';
 }
 
-/** Normalises the many shapes a "stack" can arrive in. null when empty. */
+/**
+ * Normalises the shapes a "stack" can arrive in: a stack object, a bare item
+ * name, or an empty slot. A zero count counts as empty, like vanilla.
+ */
 function readStack(stack) {
   if (!stack) return null;
   if (typeof stack === 'string') return { item: stack, count: 1, damage: 0 };
-  if (!stack.item || (stack.count | 0) < 0) return null;
+  if (!stack.item || (stack.count | 0) <= 0) return null;
   return stack;
 }
 
@@ -665,7 +726,7 @@ export function drawStack(ctx, stack, x, y, size = 32) {
     const ty = y + size - off;
     ctx.fillStyle = '#3f3f3f';
     ctx.fillText(label, tx + off, ty + off);
-    ctx.fillStyle = count === 0 ? '#ff5555' : '#ffffff';
+    ctx.fillStyle = '#ffffff';
     ctx.fillText(label, tx, ty);
   }
   ctx.restore();
@@ -693,7 +754,7 @@ function tooltipLines(s) {
 
   if (item && item.tool) {
     const t = item.tool;
-    if (t.damage) lines.push({ text: '+' + (t.damage + 1).toFixed(1) + ' Attack Damage', color: '#5555ff' });
+    if (t.damage) lines.push({ text: t.damage.toFixed(1) + ' Attack Damage', color: '#5555ff' });
     if (t.attackSpeed) lines.push({ text: t.attackSpeed.toFixed(1) + ' Attack Speed', color: '#5555ff' });
   }
   if (item && item.armor) {
@@ -834,7 +895,7 @@ function blockGeometry(def) {
     for (let f = 0; f < 6; f++) {
       let texName;
       if (override) texName = (f === FACE_UP || f === FACE_DOWN) ? override.top : override.side;
-      else texName = getTexture(def.id, 0, f);
+      else texName = resolveTexture(getTexture(def.id, 0, f), f);
       const uv = Atlas.uv(texName);
       const shade = FACE_SHADE[f];
       const tint = tintFor(def, f);
@@ -1090,6 +1151,8 @@ function eyeBrightness(player) {
 
 const SWING_TIME = 0.28;    // seconds for a full swing arc (~6 ticks)
 const EQUIP_TIME = 0.13;    // seconds for the item to drop out / come back up
+const BOB_MAX = 0.11;       // matches vanilla's `player.bob` ceiling
+const DEG = Math.PI / 180;
 
 /**
  * The first-person view model: whatever the player is holding, parented to the
@@ -1134,6 +1197,13 @@ export class HeldItemView {
     this._mats = null;
     this._built = false;
     this._euler = new THREE.Euler();
+    this._lastPlayer = null;
+
+    // Breaking a block always swings the arm, even if nothing calls swing()
+    // explicitly. Other swings (attacks, misses) come through swing().
+    this._offBreak = Game.on('blockbreak', (x, y, z, id, breaker) => {
+      if (!breaker || breaker === this._lastPlayer) this.swing();
+    });
   }
 
   // -- materials -----------------------------------------------------------
@@ -1154,9 +1224,12 @@ export class HeldItemView {
           map: null, vertexColors: true, alphaTest: 0.5,
           side: THREE.DoubleSide, transparent: false, fog: false,
         }),
+        // Sampled through the same atlas map so the shimmer follows the item's
+        // silhouette instead of squaring off around its bounding box.
         glint: new THREE.MeshBasicMaterial({
-          color: 0x8844ff, transparent: true, opacity: 0.22, depthWrite: false,
-          blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
+          map: atlasTex, color: 0x8844ff, transparent: true, opacity: 0.22,
+          alphaTest: 0.5, depthWrite: false, blending: THREE.AdditiveBlending,
+          side: THREE.DoubleSide, fog: false,
         }),
       };
     }
@@ -1164,8 +1237,10 @@ export class HeldItemView {
     if (!this._mats.block.map && Atlas.texture) {
       this._mats.block.map = Atlas.texture;
       this._mats.sprite.map = Atlas.texture;
+      this._mats.glint.map = Atlas.texture;
       this._mats.block.needsUpdate = true;
       this._mats.sprite.needsUpdate = true;
+      this._mats.glint.needsUpdate = true;
     }
     if (!this._mats.arm.map) {
       try {
@@ -1282,6 +1357,7 @@ export class HeldItemView {
 
   /** Detaches from the camera and frees the per-view materials. */
   dispose() {
+    if (this._offBreak) { this._offBreak(); this._offBreak = null; }
     this._clearModel();
     if (this.group.parent) this.group.parent.remove(this.group);
     if (this._mats) for (const k of Object.keys(this._mats)) this._mats[k].dispose();
@@ -1297,6 +1373,10 @@ export class HeldItemView {
   update(player, dt) {
     const step = clamp(dt || 0, 0, 0.1);
     this.age += step;
+    this._lastPlayer = player || null;
+
+    // Some players drive the arm themselves; mirror that flag if it appears.
+    if (player && player.swinging === true && !this.swinging) this.swing();
 
     // The camera only renders its children when it is in the scene graph.
     if (this.camera && !this.camera.parent && Game.scene) Game.scene.add(this.camera);
@@ -1343,9 +1423,13 @@ export class HeldItemView {
     const vz = player ? (player.vz || 0) : 0;
     const speed = Math.hypot(vx, vz);
     const onGround = player ? player.onGround !== false : true;
-    const target = viewBobbingEnabled() ? clamp(speed / WALK_SPEED, 0, 1) * (onGround ? 1 : 0.25) : 0;
+    // Vanilla's `player.bob` tops out around 0.1, and its phase advances with
+    // walkDist (distance * 0.6), which is what makes the hand sway per step.
+    const target = viewBobbingEnabled()
+      ? clamp(speed / WALK_SPEED, 0, 1) * BOB_MAX * (onGround ? 1 : 0.35)
+      : 0;
     this.bobAmount += (target - this.bobAmount) * Math.min(1, step * 9);
-    this.bobPhase += speed * step * 1.9;
+    this.bobPhase += speed * step * 0.6;
 
     // --- brightness -------------------------------------------------------
     const b = eyeBrightness(player);
@@ -1380,28 +1464,32 @@ export class HeldItemView {
 
     if (this.kind === 'arm') { px = i * 0.52; py = -0.62 - this.equip * 0.6; pz = -0.55; }
 
-    // --- walk bob ---------------------------------------------------------
-    if (this.bobAmount > 0.001) {
+    // --- walk bob (same shape as vanilla bobView) --------------------------
+    if (this.bobAmount > 0.0005) {
       const a = this.bobAmount;
       const ph = this.bobPhase * Math.PI;
-      px += -Math.sin(ph) * a * 0.5;
-      py += Math.abs(Math.cos(ph) * a) * 0.35;
-      rz += Math.sin(ph) * a * 0.06;
-      rx += Math.abs(Math.cos(ph - 0.2) * a) * 0.09;
+      px += Math.sin(ph) * a * 0.5;
+      py += -Math.abs(Math.cos(ph) * a);
+      rz += Math.sin(ph) * a * DEG * 3;
+      rx += Math.abs(Math.cos(ph - 0.2) * a) * DEG * 5;
     }
 
     // --- use animations ---------------------------------------------------
     if (usingNow && (useAction === 'eat' || useAction === 'drink')) {
+      // Vanilla applyEatTransform, but composed additively onto our rest pose
+      // instead of wrapping it, so the food is raised to the mouth rather than
+      // flung off the right edge of the screen.
       const dur = Math.max(1, item.useDuration || 32);
       const remaining = Math.max(0, dur - useTicks);
       const f1 = clamp(remaining / dur, 0, 1);
       if (f1 < 0.8) py += Math.abs(Math.cos((remaining / 4) * Math.PI) * 0.1);
       const f3 = 1 - Math.pow(f1, 27);
-      px += f3 * 0.6 * i;
-      py += f3 * -0.5;
-      ry += i * f3 * (Math.PI / 2);
-      rx += f3 * 0.175;
-      rz += i * f3 * 0.52;
+      px += f3 * -0.20 * i;
+      py += f3 * -0.06;
+      pz += f3 * 0.20;
+      ry += i * f3 * 0.70;
+      rx += f3 * 0.35;
+      rz += i * f3 * 0.30;
     } else if (usingNow && (useAction === 'bow' || useAction === 'crossbow')) {
       // Pull the bow into the middle of the screen as the charge builds.
       let charge = clamp(useTicks / 20, 0, 1);
