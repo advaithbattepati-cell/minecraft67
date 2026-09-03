@@ -597,8 +597,12 @@ function updateFluid(world, x, y, z, id) {
     const belowId = world.getBlock(x, y - 1, z);
     if (belowId === id) {
       const bm = world.getMeta(x, y - 1, z);
-      if ((bm & 8) === 0) world.setBlock(x, y - 1, z, id, 8, 3);
-      return;                       // falling water does not spread sideways
+      // Only flowing fluid below becomes "falling". A source below stays a
+      // source: an ocean is a stack of source blocks, and flagging them all
+      // falling rewrote 7000 blocks on load (churning every ocean chunk's mesh)
+      // and stopped water refilling a hole broken out of it.
+      if ((bm & 15) !== 0 && (bm & 8) === 0) world.setBlock(x, y - 1, z, id, 8, 3);
+      return;                       // falling fluid does not spread sideways
     }
     if (fluidCanReplace(world, x, y - 1, z, id)) {
       if (!isWater && belowId === I.water) { lavaMix(world, x, y, z, meta); return; }

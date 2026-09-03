@@ -478,12 +478,16 @@ function frame(now) {
 
   // --- streaming: generation, lighting, meshing ----------------------------
   if (active) {
-    const budget = 6;
+    // Spend more of the frame on streaming while there is a visible backlog,
+    // so a fresh world fills in quickly, then back off to stay smooth.
+    const backlog = Game.stats.chunksQueued | 0;
+    const meshBudget = backlog > 32 ? 16 : backlog > 8 ? 10 : 6;
+    const genBudget = Game.world.pendingCount > 16 ? 8 : 5;
     const t0 = performance.now();
-    safe('chunkQueue', () => Game.world.processChunkQueue(budget), null);
+    safe('chunkQueue', () => Game.world.processChunkQueue(genBudget), null);
     Game.stats.genMs = performance.now() - t0;
     safe('lightQueue', () => mods.lighting.processLightQueue(Game.world, 3), null);
-    safe('chunkRender', () => Game.chunkRenderer.update(Game.world, Game.player, 8), null);
+    safe('chunkRender', () => Game.chunkRenderer.update(Game.world, Game.player, meshBudget), null);
   }
 
   // --- camera --------------------------------------------------------------

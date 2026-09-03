@@ -1327,7 +1327,9 @@ export class Sky {
       const wet = clamp(this.rain * 0.7 + this.thunder * 0.3, 0, 1);
       // Night pulls the horizon in a little; noon pushes it out.
       far *= (1 - wet * 0.36) * lerp(0.86, 1.0, day);
-      near = far * lerp(0.62, 0.24, wet);
+      // Clear weather keeps the haze in the last fifth of the view distance.
+      // Starting it at 0.62 turned most of the visible world white.
+      near = far * lerp(0.82, 0.30, wet);
       density = wet * 0.35;
     }
 

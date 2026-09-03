@@ -106,7 +106,7 @@ export const ARMOR_HEAD = 0, ARMOR_CHEST = 1, ARMOR_LEGS = 2, ARMOR_FEET = 3;
 export const ARMOR_SLOT_NAMES = ['head', 'chest', 'legs', 'feet'];
 
 // Render
-export const DEFAULT_RENDER_DISTANCE = 6;
+export const DEFAULT_RENDER_DISTANCE = 8;
 export const MIN_RENDER_DISTANCE = 2;
 export const MAX_RENDER_DISTANCE = 16;
 
