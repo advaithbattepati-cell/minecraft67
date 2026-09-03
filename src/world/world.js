@@ -1004,6 +1004,12 @@ export class World {
     if (!e) return null;
     if (e.id === undefined || e.id === null) e.id = -(this._nextLocalId++);
     if (this.entitiesById.has(e.id) && this.entitiesById.get(e.id) === e) return e;
+    // Moving between dimensions: the previous world defers its removal to the
+    // next sweep, and that sweep keys off e.removed, which we clear two lines
+    // down. Detach eagerly or the entity sits in both lists and gets ticked by
+    // both - every round trip through a portal added another copy of the player.
+    const prev = e.world;
+    if (prev && prev !== this && typeof prev.detachEntity === 'function') prev.detachEntity(e);
     e.world = this;
     e.removed = false;
     this.entities.push(e);
@@ -1013,14 +1019,30 @@ export class World {
     return e;
   }
 
+  /**
+   * Drops an entity from this world immediately rather than at the next sweep.
+   * Replaces the array instead of splicing it, so a tick loop already iterating
+   * the old array finishes undisturbed.
+   */
+  detachEntity(e) {
+    if (!e) return false;
+    const i = this.entities.indexOf(e);
+    if (i >= 0) this.entities = this.entities.filter((x) => x !== e);
+    this._cellRemove(e);
+    if (this.entitiesById.get(e.id) === e) this.entitiesById.delete(e.id);
+    return i >= 0;
+  }
+
   /** Flags an entity as removed and unlinks it from the indexes. */
   removeEntity(e) {
     if (!e) return false;
     const known = this.entitiesById.get(e.id);
     e.removed = true;
-    this._cellRemove(e);
+    // Detach from the array here rather than waiting for the next sweep. The
+    // sweep keys off e.removed, and anything that re-adds the entity elsewhere
+    // clears that flag first, which left the entity stranded in both lists.
+    this.detachEntity(e);
     if (known === e) {
-      this.entitiesById.delete(e.id);
       this._removedCount++;
       Game.emit('entityremove', e);
       return true;

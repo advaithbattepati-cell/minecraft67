@@ -104,7 +104,10 @@ function explodeAt(world, x, y, z, power, opts) {
     if (d > r || d <= 0) continue;
     const f = 1 - d / r;
     try { e.hurt?.(Math.floor((f * f + f) * 3.5 * power) + 1, srcOf('explosion', null)); } catch { /* optional */ }
-    try { e.knockback?.(dx, dz, f * 1.4); } catch { /* optional */ }
+    // knockback() moves the victim along -(dx, dz), and dx/dz here point from
+    // the blast centre to the victim, so pass them negated: an explosion has to
+    // push outward, not suck everything in.
+    try { e.knockback?.(-dx, -dz, f * 1.4); } catch { /* optional */ }
   }
   particles('explosion', x, y, z, { count: 1, size: power });
   playAt(world, 'explode', x, y, z, 4, 0.9);
@@ -614,10 +617,16 @@ export class Mob extends LivingEntity {
     this.attackCooldown = Math.max(4, Math.round(20 / (this.def.attackSpeed || 1)));
     const dmg = this.getAttackDamage();
     if (dmg <= 0) return false;
-    const applied = target.hurt ? target.hurt(dmg, srcOf('mob', this, this)) : false;
+    // Entity.hurt already knocks the victim back, away from source.entity, and
+    // sets source.knockedBack so nothing stacks a second shove. Pass the mob's
+    // strength through the source instead of applying our own: the manual call
+    // that used to live here passed (target - attacker), the reverse vector, so
+    // its shove pointed INTO the mob and overpowered the correct one - being
+    // hit pulled you towards the attacker instead of away from it.
+    const src = srcOf('mob', this, this);
+    src.knockback = 0.4 + (this.def.knockback || 0) * 0.5;
+    const applied = target.hurt ? target.hurt(dmg, src) : false;
     if (applied) {
-      const kb = 0.4 + (this.def.knockback || 0) * 0.5;
-      try { target.knockback?.(target.x - this.x, target.z - this.z, kb); } catch { /* optional */ }
       const held = this.equipment.mainhand;
       if (held && held.fireAspect) target.fireTicks = Math.max(target.fireTicks || 0, 80);
       if (this.fireTicks > 0 && !this.def.fireImmune) target.fireTicks = Math.max(target.fireTicks || 0, 40);
@@ -1503,8 +1512,7 @@ defineMob('goat', {
     const d = Math.hypot(dx, dz) || 1;
     m.vx += (dx / d) * 1.6; m.vz += (dz / d) * 1.6;
     if (d < 1.6) {
-      m.attack(t);
-      try { t.knockback?.(dx, dz, 1.6); } catch { /* optional */ }
+      m.attack(t);          // already shoves the victim away from the goat
       m.ramCooldown = m.rng.range(200, 600);
       m.ramming = false;
       // Ramming a solid block knocks a horn loose.
@@ -2143,9 +2151,9 @@ defineMob('iron_golem', {
     // 7 - 21 damage plus a big vertical launch.
     const extra = m.rng.range(0, 14);
     try {
-      target.hurt?.(extra, srcOf('mob', m, m));
+      const kbSrc = srcOf('mob', m, m); kbSrc.knockback = 1.2;
+      target.hurt?.(extra, kbSrc);
       target.vy = Math.max(target.vy || 0, 6.5);
-      target.knockback?.(target.x - m.x, target.z - m.z, 1.2);
     } catch { /* optional */ }
   },
   onTick(m) {
@@ -3371,7 +3379,8 @@ defineMob('hoglin', {
   },
   onAttack(m, target) {
     // Hoglins toss their victims into the air.
-    try { target.vy = Math.max(target.vy || 0, 6); target.knockback?.(target.x - m.x, target.z - m.z, 1.1); } catch { /* optional */ }
+    // Mob.attack already shoved the victim away; this hook only adds the toss.
+    try { target.vy = Math.max(target.vy || 0, 6); } catch { /* optional */ }
   },
 });
 
@@ -3785,8 +3794,9 @@ defineMob('ravager', {
         m.roaring = true;
         m.roarCooldown = 60;
         for (const e of near(m, 4, (x) => x !== m && !(x.def && x.def.illager))) {
-          e.hurt?.(6 * difficultyDamage(), srcOf('mob', m, m));
-          try { e.knockback?.(e.x - m.x, e.z - m.z, 2.2); e.vy = Math.max(e.vy || 0, 6); } catch { /* optional */ }
+          const kbSrc = srcOf('mob', m, m); kbSrc.knockback = 2.2;
+          e.hurt?.(6 * difficultyDamage(), kbSrc);
+          try { e.vy = Math.max(e.vy || 0, 6); } catch { /* optional */ }
         }
       }
       return;
@@ -3877,8 +3887,9 @@ defineMob('warden', {
       }
       const src = srcOf('sonic_boom', m, m);
       src.bypassArmor = true;
+      src.knockback = 0.5;
       t.hurt?.(10, src);
-      try { t.knockback?.(dx, dz, 0.5); t.vy = Math.max(t.vy || 0, 3); } catch { /* optional */ }
+      try { t.vy = Math.max(t.vy || 0, 3); } catch { /* optional */ }
     }
   },
   onHurt(m, amount, source) {
@@ -3922,8 +3933,9 @@ defineMob('breeze', {
       { damage: 1, knockback: 1.8 });
     if (!shot) {
       // No wind charge entity available: apply the burst directly.
-      target.hurt?.(1, srcOf('magic', m, m));
-      try { target.knockback?.(target.x - m.x, target.z - m.z, 1.8); target.vy = Math.max(target.vy || 0, 6); } catch { /* optional */ }
+      const kbSrc = srcOf('magic', m, m); kbSrc.knockback = 1.8;
+      target.hurt?.(1, kbSrc);
+      try { target.vy = Math.max(target.vy || 0, 6); } catch { /* optional */ }
       particles('cloud', target.x, target.y + 1, target.z, { count: 12, spread: 0.8 });
     }
     playAt(m.world, 'breeze_shoot', m.x, m.y, m.z, 1, 1);
@@ -4084,8 +4096,9 @@ defineMob('ender_dragon', {
     // --- body damage: anything the dragon flies through gets swatted ------
     if ((m.age & 3) === 0) {
       for (const e of near(m, 8, (e) => e !== m && (isTargetablePlayer(e) || e.isMob))) {
-        e.hurt?.(m.getAttackDamage(), srcOf('mob', m, m));
-        try { e.knockback?.(e.x - m.x, e.z - m.z, 2.5); e.vy = Math.max(e.vy || 0, 8); } catch { /* optional */ }
+        const kbSrc = srcOf('mob', m, m); kbSrc.knockback = 2.5;
+        e.hurt?.(m.getAttackDamage(), kbSrc);
+        try { e.vy = Math.max(e.vy || 0, 8); } catch { /* optional */ }
       }
     }
     // Destroys blocks it flies through, apart from the indestructible ones.
@@ -4200,8 +4213,9 @@ defineMob('wither', {
         flyToward(m, t.x, t.y + 1, t.z, 1.4);
         if (m.distanceTo(t) < 3) {
           for (const e of near(m, 3.5, (e) => e !== m && (isTargetablePlayer(e) || e.isMob))) {
-            e.hurt?.(m.getAttackDamage(), srcOf('mob', m, m));
-            try { e.knockback?.(e.x - m.x, e.z - m.z, 2); e.vy = Math.max(e.vy || 0, 7); } catch { /* optional */ }
+            const kbSrc = srcOf('mob', m, m); kbSrc.knockback = 2;
+            e.hurt?.(m.getAttackDamage(), kbSrc);
+            try { e.vy = Math.max(e.vy || 0, 7); } catch { /* optional */ }
           }
           m.chargeCooldown = 40;
         }

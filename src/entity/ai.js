@@ -2845,8 +2845,8 @@ class RavagerChargeGoal extends Goal {
     m.headYaw = m.yaw;
     // Slam into the target: heavy damage plus a launch.
     if (t && m.distanceToSq(t.x, t.y, t.z) < meleeReachSq(m, t) * 1.6) {
-      if (t.hurt && t.hurt((this.def.damage || 12) * 1.5, srcOf('mob', m, m))) {
-        t.knockback?.(t.x - m.x, t.z - m.z, 2.2);
+      const kbSrc = srcOf('mob', m, m); kbSrc.knockback = 2.2;
+      if (t.hurt && t.hurt((this.def.damage || 12) * 1.5, kbSrc)) {
         t.vy = Math.max(t.vy || 0, 6);
       }
       this.ticks = 0;
@@ -3021,7 +3021,8 @@ class BossDragonGoal extends Goal {
       (e) => e !== m && (e.isPlayer || e.type === 'player'));
     for (let i = 0; i < near.length; i++) {
       const e = near[i];
-      if (e.hurt && e.hurt(6, srcOf('mob', m, m))) e.knockback?.(e.x - m.x, e.z - m.z, 1.8);
+      const kbSrc = srcOf('mob', m, m); kbSrc.knockback = 1.8;
+      if (e.hurt) e.hurt(6, kbSrc);
     }
   }
   stop() { this.mob.perching = false; }
@@ -3069,7 +3070,8 @@ class BossWitherGoal extends Goal {
       // Armoured phase: dive at the player and swat them aside.
       this.ai.steer(t.x, t.y + 1, t.z, 2.2);
       if (dist < 3) {
-        if (t.hurt && t.hurt(8, srcOf('mob', m, m))) t.knockback?.(t.x - m.x, t.z - m.z, 2);
+        const kbSrc = srcOf('mob', m, m); kbSrc.knockback = 2;
+        if (t.hurt) t.hurt(8, kbSrc);
         this.chargeCooldown = 100;
       }
     } else {

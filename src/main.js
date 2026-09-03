@@ -408,10 +408,9 @@ function switchDimension(to) {
   safe('dim.remove', () => from.removeEntity(Game.player), null);
   Game.world = target;
   Game.dimension = to;
-  if (Game.player) {
-    Game.player.world = target;
-    safe('dim.add', () => target.addEntity(Game.player), null);
-  }
+  // addEntity assigns .world itself; assigning it here first would hide the
+  // previous world from addEntity's cross-world detach guard.
+  if (Game.player) safe('dim.add', () => target.addEntity(Game.player), null);
   safe('chunkRenderer.clear', () => Game.chunkRenderer.clear(), null);
   safe('entityRenderer.clear', () => Game.entityRenderer.clear(), null);
   safe('sky.dim', () => Game.sky.setDimension(to), null);
