@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Minecraft67</title>
+<link rel="stylesheet" href="src/ui/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23795548'/><rect width='16' height='5' fill='%237cbd54'/></svg>">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+  <div id="app">
+    <canvas id="game-canvas"></canvas>
+    <div id="ui-root">
+      <div id="hud"></div>
+      <div id="screens"></div>
+      <div id="chat-layer"></div>
+      <div id="debug-layer"></div>
+      <div id="menu-layer"></div>
+      <div id="toast-layer"></div>
+    </div>
+  </div>
+  <div id="boot-screen">
+    <div class="boot-inner">
+      <h1 class="boot-title">MINECRAFT<span>67</span></h1>
+      <div class="boot-bar"><div class="boot-bar-fill" id="boot-bar-fill"></div></div>
+      <div class="boot-status" id="boot-status">Loading&hellip;</div>
+    </div>
+  </div>
+  <noscript><p style="color:#fff;font-family:monospace">This game requires JavaScript.</p></noscript>
+  <script type="module">
+    // Surface any hard boot failure to the player instead of a blank screen.
+    window.__bootError = null;
+    window.addEventListener('error', (e) => {
+      if (window.__gameReady) return;
+      window.__bootError = String(e.message || e.error);
+      const s = document.getElementById('boot-status');
+      if (s) { s.textContent = 'Error: ' + window.__bootError; s.style.color = '#ff6b6b'; }
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      if (window.__gameReady) return;
+      window.__bootError = String((e.reason && e.reason.message) || e.reason);
+      const s = document.getElementById('boot-status');
+      if (s) { s.textContent = 'Error: ' + window.__bootError; s.style.color = '#ff6b6b'; }
+    });
+    import('./src/main.js').catch((err) => {
+      console.error(err);
+      window.__bootError = String(err && err.message || err);
+      const s = document.getElementById('boot-status');
+      if (s) { s.textContent = 'Error: ' + window.__bootError; s.style.color = '#ff6b6b'; }
+    });
+  </script>
+</body>
+</html>
