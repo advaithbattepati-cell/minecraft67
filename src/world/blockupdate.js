@@ -2747,6 +2747,9 @@ function tickFurnaces(world) {
     // world.setBlock creates a bare stub record; the slots only appear when
     // something opens the furnace. Fill them in so a placed furnace is tickable.
     if (!be.items) be.items = [null, null, null];
+    // An idle furnace has nothing to advance, so skip the key parse and the
+    // block lookup: most furnaces in a loaded world are sitting empty.
+    if (!(be.burnTime > 0) && !(be.cookTime > 0) && !be.items[0]) continue;
     const parts = key.split(',');
     const x = +parts[0], y = +parts[1], z = +parts[2];
     const id = world.getBlock(x, y, z);
