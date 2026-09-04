@@ -1643,48 +1643,10 @@ BUILDERS.furnace = function furnaceScreen(screen, ctx) {
 
   const total = KIND_TIME[kind] || 200;
 
-  const tick = () => {
-    let changed = false;
-    const input = inv.get(0);
-    const fuel = inv.get(1);
-    const out = inv.get(2);
-    const recipe = input ? smeltResult(kind, input.item) : null;
-    const canCook = !!recipe && (!out || (out.item === recipe.output
-      && (out.count | 0) + (recipe.count || 1) <= maxOf(out)));
-
-    if (be.burnTime > 0) { be.burnTime--; changed = true; }
-    if (be.burnTime <= 0 && canCook && fuel) {
-      const ticks = fuelTicks(fuel.item);
-      if (ticks > 0) {
-        be.burnTime = ticks;
-        be.fuelTime = ticks;
-        const rem = fuelRemainder(fuel.item);
-        if ((fuel.count | 0) <= 1) inv.set(1, rem ? mkStack(rem, 1) : null);
-        else { fuel.count -= 1; inv.set(1, fuel); }
-        changed = true;
-      }
-    }
-    if (be.burnTime > 0 && canCook) {
-      be.cookTime = (be.cookTime | 0) + 1;
-      changed = true;
-      const need = (recipe.time || total);
-      if (be.cookTime >= need) {
-        be.cookTime = 0;
-        const made = recipe.count || 1;
-        if (out) { out.count = (out.count | 0) + made; inv.set(2, out); }
-        else inv.set(2, mkStack(recipe.output, made));
-        if ((input.count | 0) <= 1) inv.set(0, null);
-        else { input.count -= 1; inv.set(0, input); }
-        be.xp = (be.xp || 0) + (smeltXp(kind, input.item) || 0) * made;
-        sound('fizz', 0.15, 1.4);
-      }
-    } else if (be.cookTime > 0) {
-      be.cookTime = Math.max(0, be.cookTime - 2);
-      changed = true;
-    }
-    // Keep the world's lit/unlit block state honest while the screen is open.
-    return changed;
-  };
+  // The world owns the smelting simulation now (blockupdate.js tickFurnaces),
+  // so a furnace keeps burning with its screen closed. This screen only draws;
+  // ticking here as well would cook everything at double speed while open.
+  const tick = () => true;
 
   return {
     refresh: () => {
@@ -2222,8 +2184,12 @@ BUILDERS.trading = function tradingScreen(screen, ctx) {
   el('div', 'trade-arrow', detailRow);
   const sellBox = el('div', '', detailRow);
 
-  this.addSlot({ inv: inputs, index: 0, parent: buyBox, quick: giveBack });
-  this.addSlot({ inv: inputs, index: 1, parent: buyBBox, quick: giveBack });
+  // These two slots only PREVIEW what the trade costs. The payment itself is
+  // taken straight from the player's inventory by useTrade(), so the stacks
+  // here were fabricated - and they were takeable, which meant selecting a
+  // trade and shift-clicking the price slot minted free items on repeat.
+  this.addSlot({ inv: inputs, index: 0, parent: buyBox, readOnly: true });
+  this.addSlot({ inv: inputs, index: 1, parent: buyBBox, readOnly: true });
 
   const sellSlot = this.addSlot({
     inv: outInv,
@@ -2238,14 +2204,6 @@ BUILDERS.trading = function tradingScreen(screen, ctx) {
 
   const status = el('div', 'mc-hint', detail, '');
   button('Trade', detail, () => doTrade(), 'primary');
-
-  function giveBack(slot) {
-    const pinv = player && player.inventory;
-    if (!pinv) return false;
-    transferStack(inputs, slot.index, pinv, null, [HOTBAR_SIZE, INV_MAIN_SIZE]);
-    if (inputs.get(slot.index)) transferStack(inputs, slot.index, pinv, null, [0, HOTBAR_SIZE]);
-    return true;
-  }
 
   const screens = this;
   function doTrade() {

@@ -30,10 +30,10 @@ import {
 } from './blocks.js';
 import { getItem } from '../item/items.js';
 import {
-  stack as mkStack, isEmpty, damageStack, giveOrDrop, copyStack,
+  stack as mkStack, isEmpty, damageStack, giveOrDrop, copyStack, maxStackSize,
 } from '../item/inventory.js';
 import { blockDrops } from '../item/loot.js';
-import { smeltResult } from '../item/smelting.js';
+import { smeltResult, smeltXp, fuelTicks, fuelRemainder, KIND_TIME } from '../item/smelting.js';
 
 const flr = Math.floor;
 
@@ -2727,11 +2727,85 @@ export function tickWorldBlocks(world, dt) {
   }
 
   try { tickCampfires(world); } catch { /* optional */ }
+  try { tickFurnaces(world); } catch (e) { console.error('[blockupdate] furnaces', e); }
 }
 
 let _campfireTimer = 0;
 
 /** Advances campfire cook timers and pops the finished food out. */
+/**
+ * Advances every loaded furnace, blast furnace and smoker.
+ *
+ * This used to live only in the furnace screen's update, so a furnace stopped
+ * smelting the moment the player closed it - you had to stand and watch your
+ * iron cook. The screen now only draws; the world owns the simulation.
+ */
+function tickFurnaces(world) {
+  if (_beShadow.size === 0) return;
+  for (const [key, be] of _beShadow) {
+    if (!be || be.type !== 'furnace') continue;
+    // world.setBlock creates a bare stub record; the slots only appear when
+    // something opens the furnace. Fill them in so a placed furnace is tickable.
+    if (!be.items) be.items = [null, null, null];
+    const parts = key.split(',');
+    const x = +parts[0], y = +parts[1], z = +parts[2];
+    const id = world.getBlock(x, y, z);
+    const def = getBlock(id);
+    if (!def || def.entityType !== 'furnace') continue;
+    tickOneFurnace(world, be, x, y, z, def);
+  }
+}
+
+/** One furnace's burn and cook step. Mirrors vanilla's ordering. */
+function tickOneFurnace(world, be, x, y, z, def) {
+  const kind = be.kind || (def.name === 'blast_furnace' || def.name === 'smoker' ? def.name : 'furnace');
+  const items = be.items;
+  const input = items[0], fuel = items[1], out = items[2];
+  const wasLit = (be.burnTime | 0) > 0;
+
+  const recipe = input ? smeltResult(kind, input.item) : null;
+  const made = recipe ? (recipe.count || 1) : 0;
+  const canCook = !!recipe && (!out
+    || (out.item === recipe.output && (out.count | 0) + made <= maxStackSize(out)));
+
+  if (be.burnTime > 0) be.burnTime--;
+
+  if (be.burnTime <= 0 && canCook && fuel) {
+    const ticks = fuelTicks(fuel.item);
+    if (ticks > 0) {
+      be.burnTime = ticks;
+      be.fuelTime = ticks;
+      const rem = fuelRemainder(fuel.item);
+      if ((fuel.count | 0) <= 1) items[1] = rem ? mkStack(rem, 1) : null;
+      else fuel.count -= 1;
+    }
+  }
+
+  if (be.burnTime > 0 && canCook) {
+    be.cookTime = (be.cookTime | 0) + 1;
+    const need = recipe.time || KIND_TIME[kind] || 200;
+    if (be.cookTime >= need) {
+      be.cookTime = 0;
+      if (out) out.count = (out.count | 0) + made;
+      else items[2] = mkStack(recipe.output, made);
+      if ((input.count | 0) <= 1) items[0] = null;
+      else input.count -= 1;
+      be.xp = (be.xp || 0) + (smeltXp(kind, input.item) || 0) * made;
+    }
+  } else if (be.cookTime > 0) {
+    be.cookTime = Math.max(0, be.cookTime - 2);
+  }
+
+  // Keep the block's lit variant in step so the world shows which furnaces run.
+  const lit = (be.burnTime | 0) > 0;
+  if (lit !== wasLit) {
+    const want = blockByName(lit ? def.name + '_lit' : String(def.name).replace(/_lit$/, ''));
+    if (want && want.id !== def.id) {
+      world.setBlock(x, y, z, want.id, world.getMeta(x, y, z), 1);
+    }
+  }
+}
+
 function tickCampfires(world) {
   if (--_campfireTimer > 0) return;
   _campfireTimer = 10;
