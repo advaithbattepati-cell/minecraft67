@@ -46,6 +46,19 @@ page.on('requestfailed', (r) => errors.push(`REQUESTFAILED: ${r.url()} ${r.failu
 
 const result = { ok: false, stage: 'start', errors, warnings, notes: [] };
 
+/**
+ * Screenshots are diagnostics, not the test. Under swiftshader a busy frame
+ * loop can keep the compositor from ever settling, and Playwright waits for a
+ * stable frame, so a slow capture must not fail the run.
+ */
+async function shot(name) {
+  try {
+    await page.screenshot({ path: path.join(SHOTS, name), timeout: 20000, animations: 'disabled' });
+  } catch (e) {
+    result.notes.push(`screenshot ${name} timed out (software rendering is slow; not a game error)`);
+  }
+}
+
 try {
   await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'domcontentloaded', timeout: 30000 });
   result.stage = 'loaded';
@@ -59,7 +72,7 @@ try {
   result.gameReady = await page.evaluate('window.__gameReady === true');
   result.stage = 'booted';
 
-  await page.screenshot({ path: path.join(SHOTS, '01-boot.png') });
+  await shot('01-boot.png');
 
   // Start a world through the test hook if present.
   const started = await page.evaluate(`(async () => {
@@ -69,14 +82,14 @@ try {
   result.startMethod = started;
 
   await page.waitForTimeout(2500);
-  await page.screenshot({ path: path.join(SHOTS, '02-world.png') });
+  await shot('02-world.png');
 
   // Let it simulate.
   const t0 = Date.now();
   while (Date.now() - t0 < PLAY_SECONDS * 1000) {
     await page.waitForTimeout(1000);
   }
-  await page.screenshot({ path: path.join(SHOTS, '03-playing.png') });
+  await shot('03-playing.png');
   result.stage = 'played';
 
   result.state = await page.evaluate(`(() => {

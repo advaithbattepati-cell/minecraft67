@@ -315,6 +315,7 @@ export class ChunkRenderer {
     // Quantized daylight multiplier the built meshes were baked with, so we can
     // notice when the time of day has moved far enough to matter.
     this._skyQ = -1;
+    this._skyAt = 0;
 
     // ---- cursor overlays ---------------------------------------------
     this._selBoxes = null;
@@ -420,6 +421,13 @@ export class ChunkRenderer {
     try { f = world.skyLightFactor ? world.skyLightFactor() : 1; } catch { f = 1; }
     const q = Math.round(Math.max(0, Math.min(1, f)) * 32);
     if (q === this._skyQ) return;
+    // Rate limit as well as quantize. A weather ramp moves the factor by 0.01 a
+    // tick, which crosses a bucket every few ticks and would re-bake the whole
+    // view several times a second. One pass every few seconds is plenty: the
+    // sky and fog follow the light continuously either way.
+    const now = performance.now();
+    if (this._skyQ >= 0 && now - this._skyAt < 4000) return;
+    this._skyAt = now;
     this._skyQ = q;
     // Invalidate our own cached version, not chunk.dirty: that flag belongs to
     // the world and is driven by lighting and block changes. The existing

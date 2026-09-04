@@ -81,10 +81,21 @@ CONTRACT.md           the normative API contract every module implements
 ## Development
 
 ```bash
-npm start                 # dev server
+npm start                 # dev server on http://localhost:8080
 node tools/validate.mjs   # cross-check the registries in Node (needs `npm i three` locally)
-node tools/verify.mjs       # headless Chromium boot + play test, writes tools/screenshots/
+node tools/verify.mjs     # headless Chromium boot + play test, reports console errors
+node tools/tour.mjs       # flies the camera to a set of vantage points and screenshots each
 ```
+
+`verify.mjs` boots the game in headless Chromium, plays for a while, then prints a JSON report:
+console errors, tick and frame timings, entity counts and registry sizes. It exits non-zero on
+any error, so it doubles as a smoke test. `tour.mjs` writes `tools/screenshots/`, which is the
+quickest way to tell whether a rendering change actually looks right.
+
+Both drive the game through `window.__mc`, which `main.js` exposes: `quickStart()`,
+`startNewWorld()`, `loadSavedWorld()`, `switchDimension()`, `counts()` and `broken()`. Check
+`broken()` after a change - `main.js` deliberately degrades instead of crashing when one module
+is unhappy, so a dead subsystem is otherwise silent.
 
 `CONTRACT.md` is the source of truth for every module boundary. Read it before changing
 anything that another module imports.
