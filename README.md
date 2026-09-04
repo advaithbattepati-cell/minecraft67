@@ -85,6 +85,7 @@ npm start                 # dev server on http://localhost:8080
 node tools/validate.mjs   # cross-check the registries in Node (needs `npm i three` locally)
 node tools/verify.mjs     # headless Chromium boot + play test, reports console errors
 node tools/tour.mjs       # flies the camera to a set of vantage points and screenshots each
+node tools/playtest.mjs   # plays the game with real key and mouse events, asserts the world changed
 ```
 
 `verify.mjs` boots the game in headless Chromium, plays for a while, then prints a JSON report:
@@ -92,7 +93,14 @@ console errors, tick and frame timings, entity counts and registry sizes. It exi
 any error, so it doubles as a smoke test. `tour.mjs` writes `tools/screenshots/`, which is the
 quickest way to tell whether a rendering change actually looks right.
 
-Both drive the game through `window.__mc`, which `main.js` exposes: `quickStart()`,
+`playtest.mjs` is the one that answers "is it actually playable": it sends real keyboard and
+mouse events into the page and then checks the world changed as a player would expect - W moves
+you, holding left click breaks the block under the crosshair, the drop lands and is collected,
+right click places it back, E opens the inventory, and so on. It goes through `input.js` and
+`player.js` rather than poking internals. The single concession is that headless Chromium will
+not grant pointer lock, so the lock flag is set directly before the mouse tests.
+
+All three drive the game through `window.__mc`, which `main.js` exposes: `quickStart()`,
 `startNewWorld()`, `loadSavedWorld()`, `switchDimension()`, `counts()` and `broken()`. Check
 `broken()` after a change - `main.js` deliberately degrades instead of crashing when one module
 is unhappy, so a dead subsystem is otherwise silent.

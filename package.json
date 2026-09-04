@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node tools/serve.js",
     "serve": "node tools/serve.js",
-    "test": "node tools/verify.mjs"
+    "test": "node tools/verify.mjs",
+    "playtest": "node tools/playtest.mjs",
+    "tour": "node tools/tour.mjs",
+    "validate": "node tools/validate.mjs"
   },
   "private": true
 }

@@ -582,8 +582,18 @@ function frame(now) {
   const frameStart = performance.now();
   const dtRaw = lastTime ? (now - lastTime) / 1000 : 0;
   lastTime = now;
-  // Clamp so a background tab or a long GC pause cannot teleport entities.
+  // Two different clamps, because they guard different things.
+  //
+  // `dt` drives per-frame work - input, interpolation, animation - where a
+  // single huge step would teleport things, so it stays tight.
+  //
+  // `simDt` feeds the fixed-timestep accumulator below. Those steps are always
+  // exactly 50ms however many run, so a bigger budget is safe and is the whole
+  // point of a fixed timestep. Feeding the accumulator the tight clamp instead
+  // put the game into slow motion below 10fps: mining, growth and mob AI all
+  // ran at a fraction of real time rather than the frame rate simply dropping.
   const dt = Math.min(dtRaw, 0.1);
+  const simDt = Math.min(dtRaw, 0.5);
   Game.dt = dt;
   Game.time += dt;
   Game.frame++;
@@ -598,18 +608,20 @@ function frame(now) {
 
   // --- fixed 20 Hz simulation ---------------------------------------------
   if (active) {
-    tickAccumulator += dt * 1000;
+    tickAccumulator += simDt * 1000;
     let ticksThisFrame = 0;
     const tickStart = performance.now();
-    while (tickAccumulator >= TICK_MS && ticksThisFrame < 5) {
+    // Up to half a second of catch-up per frame, matching the simDt budget.
+    while (tickAccumulator >= TICK_MS && ticksThisFrame < 10) {
       tickAccumulator -= TICK_MS;
       ticksThisFrame++;
       Game.ticks++;
       safe('world.tick', () => Game.world.tick(TICK_MS / 1000), null);
       Game.emit('tick', Game.ticks);
     }
-    // A very long stall would otherwise build an unbounded backlog.
-    if (tickAccumulator > TICK_MS * 10) tickAccumulator = 0;
+    // A stall longer than the catch-up budget is dropped rather than queued,
+    // so a backgrounded tab does not come back and fast-forward the world.
+    if (tickAccumulator > TICK_MS * 20) tickAccumulator = 0;
     Game.stats.tickMs = performance.now() - tickStart;
   }
 
