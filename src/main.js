@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import { Game } from './core/game.js';
 import {
   TICK_MS, DIM_OVERWORLD, DIM_NETHER, DIM_END, GAMEMODE, DIFFICULTY,
-  DEFAULT_RENDER_DISTANCE, CHUNK_X, CHUNK_Z, SEA_LEVEL, WORLD_HEIGHT, PLAYER_EYE,
+  DEFAULT_RENDER_DISTANCE, CHUNK_X, CHUNK_Z, SEA_LEVEL, WORLD_HEIGHT, PLAYER_EYE, NETHER_ROOF,
 } from './core/constants.js';
 import { clamp } from './core/util.js';
 import { RNG, hashString } from './core/rng.js';
@@ -464,6 +464,22 @@ async function loadSavedWorld(name) {
   }, null);
 }
 
+/**
+ * Nearest feet-height to `y` with a two-block air pocket on a solid floor, or
+ * null when the column has nowhere to stand.
+ */
+function findLanding(world, x, z, y) {
+  const top = (world.dimension === DIM_NETHER ? NETHER_ROOF : WORLD_HEIGHT) - 3;
+  const ok = (fy) => fy >= 1 && fy <= top && !world.isSolid(x, fy, z)
+    && !world.isSolid(x, fy + 1, z) && world.isSolid(x, fy - 1, z);
+  const start = clamp(Math.floor(y), 1, top);
+  for (let d = 0; d <= top; d++) {
+    if (ok(start - d)) return start - d;
+    if (ok(start + d)) return start + d;
+  }
+  return null;
+}
+
 /** Moves the player between dimensions, creating the destination world if needed. */
 function switchDimension(to) {
   const target = Game.worlds[to];
@@ -472,9 +488,38 @@ function switchDimension(to) {
   safe('dim.remove', () => from.removeEntity(Game.player), null);
   Game.world = target;
   Game.dimension = to;
+  // Nothing else moves the player on a dimension change, so without this they
+  // arrive at the same x/y/z inside whatever the destination has there - which
+  // in the Nether is usually solid netherrack, and they suffocate.
+  const p = Game.player;
+  if (p) safe('dim.place', () => {
+    const bx = Math.floor(p.x), bz = Math.floor(p.z), cx = bx >> 4, cz = bz >> 4;
+    // The destination chunks are unloaded at swap time; without generating them
+    // first every getBlock returns air and the scan reports "safe" everywhere.
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) target.ensureChunk(cx + dx, cz + dz);
+    let fy = findLanding(target, bx, bz, p.y);
+    if (fy == null) {
+      // Nothing free in the column: carve a small platform rather than drop the
+      // player into rock or the void.
+      const cap = (to === DIM_NETHER ? NETHER_ROOF : WORLD_HEIGHT) - 4;
+      fy = clamp(Math.floor(p.y), 5, cap);
+      const floorName = to === DIM_NETHER ? 'netherrack' : 'obsidian';
+      const floor = mods.blocks && mods.blocks.blockByName(floorName);
+      for (let dz = -1; dz <= 1; dz++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (floor) target.setBlock(bx + dx, fy - 1, bz + dz, floor.id, 0, 3);
+          for (let dy = 0; dy < 3; dy++) target.setBlock(bx + dx, fy + dy, bz + dz, 0, 0, 3);
+        }
+      }
+    }
+    p.y = fy; p.py = fy;
+    p.vx = 0; p.vy = 0; p.vz = 0;
+    p.fallDistance = 0;
+  }, null);
+
   // addEntity assigns .world itself; assigning it here first would hide the
   // previous world from addEntity's cross-world detach guard.
-  if (Game.player) safe('dim.add', () => target.addEntity(Game.player), null);
+  if (p) safe('dim.add', () => target.addEntity(p), null);
   safe('chunkRenderer.clear', () => Game.chunkRenderer.clear(), null);
   safe('entityRenderer.clear', () => Game.entityRenderer.clear(), null);
   safe('sky.dim', () => Game.sky.setDimension(to), null);
@@ -584,7 +629,9 @@ function frame(now) {
   // --- stats ---------------------------------------------------------------
   const frameMs = performance.now() - frameStart;
   Game.stats.frameMs = frameMs;
-  fpsAccum += dt; fpsFrames++; fpsTimer += dt;
+  // Accumulate wall time, not the simulation-clamped dt: dividing frames by the
+  // clamped value pins the reading at 1/clamp (10) whenever frames run slower.
+  fpsAccum += dtRaw; fpsFrames++; fpsTimer += dtRaw;
   if (fpsTimer >= 0.5) {
     Game.stats.fps = Math.round(fpsFrames / fpsAccum);
     fpsAccum = 0; fpsFrames = 0; fpsTimer = 0;

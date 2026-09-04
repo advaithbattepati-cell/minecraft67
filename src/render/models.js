@@ -2182,7 +2182,13 @@ defineModel('warden', {
       p.body.position.y += Math.abs(sin(t.limbSwing * 0.4)) * t.limbSwingAmount * 0.8 * S;
     }
     // The chest heart beats faster the angrier the warden is.
-    const rage = clamp((e.anger || 0) / 80, 0, 1);
+    // e.anger is a null-prototype map of entity id -> anger, so every numeric
+    // coercion of it throws (no valueOf, no toString). Read the peak instead.
+    const anger = e.anger;
+    let peak = 0;
+    if (typeof anger === 'number') peak = anger;
+    else if (anger) { for (const k in anger) { const v = anger[k]; if (typeof v === 'number' && v > peak) peak = v; } }
+    const rage = clamp(peak / 80, 0, 1);
     const beat = 0.6 + rage * 1.4;
     const pulse = 1 + Math.pow(Math.abs(sin(t.age * 0.09 * beat)), 6) * 0.6;
     if (p.heart) p.heart.scale.set(pulse, pulse, 1);

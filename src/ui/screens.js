@@ -2136,12 +2136,10 @@ BUILDERS.brewing = function brewingScreen(screen, ctx) {
       arrow.style.setProperty('--progress', String(clamp(p, 0, 1)));
       bubbles.style.setProperty('--fuel', String(clamp((be.fuel || 0) / BREW_FUEL_USES, 0, 1)));
     },
-    tick: () => {
-      let changed = false;
-      try { changed = !!tickBrewingStand(be); } catch { changed = false; }
-      if (changed) inv.markChanged(-1);
-      return changed;
-    },
+    // The world drives brewing now (blockupdate.js tickBrewingStands), so a
+    // stand keeps working with its screen closed. Ticking here as well would
+    // brew at double speed whenever the screen is open.
+    tick: () => true,
   };
 };
 

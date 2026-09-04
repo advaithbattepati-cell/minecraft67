@@ -34,6 +34,7 @@ import {
 } from '../item/inventory.js';
 import { blockDrops } from '../item/loot.js';
 import { smeltResult, smeltXp, fuelTicks, fuelRemainder, KIND_TIME } from '../item/smelting.js';
+import { tickBrewingStand } from '../item/brewing.js';
 
 const flr = Math.floor;
 
@@ -2728,6 +2729,7 @@ export function tickWorldBlocks(world, dt) {
 
   try { tickCampfires(world); } catch { /* optional */ }
   try { tickFurnaces(world); } catch (e) { console.error('[blockupdate] furnaces', e); }
+  try { tickBrewingStands(world); } catch (e) { console.error('[blockupdate] brewing', e); }
 }
 
 let _campfireTimer = 0;
@@ -2806,6 +2808,26 @@ function tickOneFurnace(world, be, x, y, z, def) {
     if (want && want.id !== def.id) {
       world.setBlock(x, y, z, want.id, world.getMeta(x, y, z), 1);
     }
+  }
+}
+
+/**
+ * Brewing stands, like furnaces, used to advance only while their screen was
+ * open, so a brew paused the moment you walked away.
+ */
+function tickBrewingStands(world) {
+  if (_beShadow.size === 0) return;
+  for (const [key, be] of _beShadow) {
+    if (!be || be.type !== 'brewing_stand') continue;
+    if (!be.items) be.items = new Array(5).fill(null);
+    // brewing.js reads be.slots; the screen aliases the two to one array when
+    // it opens. Alias here too, or a never-opened stand brews into a second
+    // array that nothing else reads and the potion vanishes.
+    if (be.slots !== be.items) be.slots = be.items;
+    const p = key.split(',');
+    const def = getBlock(world.getBlock(+p[0], +p[1], +p[2]));
+    if (!def || def.name !== 'brewing_stand') continue;
+    tickBrewingStand(be);
   }
 }
 

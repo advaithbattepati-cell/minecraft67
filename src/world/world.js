@@ -804,7 +804,28 @@ export class World {
    * cascade of updates can never blow the stack.
    */
   _afterChange(x, y, z, oldId, newId) {
-    if (this._updateDepth >= MAX_UPDATE_DEPTH) return;
+    if (this._updateDepth >= MAX_UPDATE_DEPTH) {
+      // Too deep to keep recursing. A support cascade - a tall vine or ladder
+      // column losing its anchor - is one depth level per block, so a long one
+      // used to be silently truncated and leave the rest floating. Hand the
+      // remainder to the tick queue instead: scheduledTick re-checks support,
+      // so the chain resumes next tick from depth zero.
+      //
+      // Only for a block turning to air. Re-queueing on every deep change would
+      // let a genuine update cycle reschedule itself forever.
+      if (newId === 0) {
+        for (let f = 0; f < 6; f++) {
+          const dir = FACE_DIRS[f];
+          const nx = x + dir[0], ny = y + dir[1], nz = z + dir[2];
+          if (ny < 0 || ny >= WORLD_HEIGHT) continue;
+          // The queue cancels an entry whose block changed, so pass the id
+          // that is there now.
+          const nid = this.getBlock(nx, ny, nz);
+          if (nid !== 0) this.scheduleTick(nx, ny, nz, 1, nid);
+        }
+      }
+      return;
+    }
     this._updateDepth++;
     try {
       // Freshly placed fluids and their liquid neighbours need a spread tick.
