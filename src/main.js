@@ -258,6 +258,14 @@ async function boot() {
 // Event wiring between subsystems
 // ---------------------------------------------------------------------------
 function wireEvents() {
+  // save.js only writes chunks it has been told changed, and nothing was
+  // telling it, so every block edit was dropped on reload.
+  Game.on('blockchange', (x, y, z) => {
+    if (!Game.save || !Game.world) return;
+    const c = Game.world.chunkAt(x, z);
+    if (c) safe('save.markDirty', () => Game.save.markChunkModified(c), null);
+  });
+
   Game.on('toast', (text) => safe('hud.toast', () => Game.ui.hud.setActionBar(text), null));
   Game.on('chat', (text) => safe('chat.add', () => Game.ui.chat.addMessage(text), null));
 
@@ -319,9 +327,17 @@ function wireEvents() {
  */
 async function startNewWorld(opts = {}) {
   const seedInput = opts.seed ?? Math.floor(Math.random() * 2 ** 31);
-  const seed = typeof seedInput === 'string' && seedInput.trim() !== ''
-    ? (/^-?\d+$/.test(seedInput.trim()) ? Number(seedInput.trim()) : hashString(seedInput.trim()))
-    : Number(seedInput) || Math.floor(Math.random() * 2 ** 31);
+  let seed;
+  if (typeof seedInput === 'string' && seedInput.trim() !== '') {
+    const t = seedInput.trim();
+    seed = /^-?\d+$/.test(t) ? Number(t) : hashString(t);
+  } else if (Number.isFinite(Number(seedInput))) {
+    // Number(0) is falsy, and the old `||` fallback quietly regenerated a saved
+    // seed-0 world with a fresh random seed on every load.
+    seed = Number(seedInput);
+  } else {
+    seed = Math.floor(Math.random() * 2 ** 31);
+  }
 
   Game.seed = seed >>> 0;
   Game.worldName = opts.name || 'New World';
@@ -347,9 +363,14 @@ async function startNewWorld(opts = {}) {
       // Smooth Lighting option was inert. Set it on every dimension, or it
       // silently reverts after a trip through a portal.
       w.smoothLighting = safe('smoothSetting', () => Game.settings.get('smoothLighting'), true) !== false;
+      if (opts.generateStructures === false && w.generator) w.generator.generateStructures = false;
       Game.worlds[dim] = w;
     }
   }
+
+  // Put saved chunks back before anything generates the spawn area, so an
+  // edited world reloads as the player left it instead of being regenerated.
+  if (opts.restoreChunks) await restoreSavedChunks(opts.name);
   Game.world = Game.worlds[DIM_OVERWORLD];
   Game.dimension = DIM_OVERWORLD;
   if (!Game.world) {
@@ -403,14 +424,43 @@ async function startNewWorld(opts = {}) {
   Game.log(`Welcome to ${Game.worldName}. Seed: ${Game.seed}`);
 }
 
+/**
+ * Reads every stored chunk for a world and drops it into the matching dimension.
+ * Only modified chunks are ever written, so this is a small set; everything else
+ * is regenerated from the seed.
+ */
+async function restoreSavedChunks(name) {
+  if (!Game.save || typeof Game.save.loadWorldChunks !== 'function') return 0;
+  const Chunk = mods.chunk && mods.chunk.Chunk;
+  if (!Chunk || typeof Chunk.deserialize !== 'function') return 0;
+  const rows = await safe('save.loadChunks', () => Game.save.loadWorldChunks(name), []) || [];
+  let restored = 0;
+  for (const rec of rows) {
+    const w = Game.worlds[rec.dimension || rec.dim || DIM_OVERWORLD];
+    if (!w) continue;
+    const chunk = safe('save.deserializeChunk', () => Chunk.deserialize(rec, w), null);
+    if (!chunk) continue;
+    w.addChunk(chunk);
+    restored++;
+  }
+  if (restored) bootStatus(`Restoring ${restored} saved chunks`, 0.5);
+  return restored;
+}
+
 /** Loads a previously saved world by name. */
 async function loadSavedWorld(name) {
   const data = await safe('save.load', () => Game.save.loadWorld(name), null);
   if (!data) { Game.log(`Could not load world "${name}".`); return; }
-  await startNewWorld({ name, seed: data.seed, mode: data.mode, difficulty: data.difficulty });
+  await startNewWorld({
+    name, seed: data.seed, mode: data.mode, difficulty: data.difficulty,
+    restoreChunks: true,
+  });
   safe('save.restore', () => {
+    // applyWorldSave restores time, weather and the spawn point per dimension.
+    const apply = mods.save && mods.save.applyWorldSave;
+    if (apply) for (const dim in Game.worlds) apply(Game.worlds[dim], data, dim);
+    else if (data.time != null && Game.world) Game.world.time = data.time;
     if (data.player && Game.player && typeof Game.player.load === 'function') Game.player.load(data.player);
-    if (data.time != null && Game.world) Game.world.time = data.time;
   }, null);
 }
 
@@ -527,6 +577,9 @@ function frame(now) {
   safe('render', () => Game.renderer.render(Game.scene, Game.camera), null);
 
   if (Game.input) safe('input.consume', () => Game.input.consume(), null);
+
+  // save.js implements its own 30-second cadence; it just needs pumping.
+  if (active && Game.save) safe('autosave', () => Game.save.autoSaveTick(Game), null);
 
   // --- stats ---------------------------------------------------------------
   const frameMs = performance.now() - frameStart;

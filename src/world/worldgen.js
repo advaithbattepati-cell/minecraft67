@@ -274,6 +274,8 @@ export class WorldGen {
   constructor(seed, dimension = DIM_OVERWORLD) {
     this.seed = (typeof seed === 'string' ? hashString(seed) : seed >>> 0) >>> 0;
     this.dimension = dimension || DIM_OVERWORLD;
+    // Set false by the Create New World screen's "Generate Structures" toggle.
+    this.generateStructures = true;
 
     const s = this.seed;
     const n = (k) => new Noise(hash3(s, k, 0x9e3779b9 | 0, 0x5bf03635 | 0));
@@ -1296,7 +1298,8 @@ export class WorldGen {
       if (_features && typeof _features.generateOres === 'function') {
         try { _features.generateOres(chunk, world, rng); } catch (e) { console.error('[worldgen] ores', e); }
       }
-      if (_structures && typeof _structures.generateStructures === 'function') {
+      if (this.generateStructures !== false
+          && _structures && typeof _structures.generateStructures === 'function') {
         try { _structures.generateStructures(chunk, world, rng); } catch (e) { console.error('[worldgen] structures', e); }
       }
       if (_features && typeof _features.decorateChunk === 'function') {

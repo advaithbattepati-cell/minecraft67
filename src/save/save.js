@@ -1438,6 +1438,24 @@ export class SaveManager {
     }
   }
 
+  /**
+   * Every stored chunk record for a world, optionally one dimension. Only
+   * modified chunks are ever written, so this set stays small - everything else
+   * is regenerated from the seed.
+   */
+  async loadWorldChunks(worldName, dim = null) {
+    try {
+      const backend = await this._ensure();
+      const rows = await backend.getAll(STORE_CHUNKS, worldChunkRange(String(worldName), dim));
+      if (rows && rows.length) this.stats.chunkReads += rows.length;
+      this._ok();
+      return rows || [];
+    } catch (e) {
+      this._fail('loadWorldChunks', e);
+      return [];
+    }
+  }
+
   /** Number of chunks stored for a world (optionally one dimension). */
   async countChunks(worldName, dim = null) {
     try {
