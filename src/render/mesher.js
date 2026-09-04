@@ -1350,8 +1350,14 @@ function emitPistonHead(b, id, meta, pi, smooth) {
 }
 
 function emitRail(b, id, meta, pi) {
-  const shape = meta & 15;
   const def = getBlock(id);
+  // Only the plain rail uses all four meta bits for its ten shapes. Powered,
+  // detector and activator rails keep bit 3 for their powered state and have
+  // just six shapes, so masking all of them with 15 made every powered rail
+  // snap to a corner or ascending piece the moment it was switched on.
+  const curved = def.name === 'rail';
+  const raw = curved ? (meta & 15) : (meta & 7);
+  const shape = curved ? (raw > 9 ? 0 : raw) : (raw > 5 ? 0 : raw);
   let name = typeof def.tex === 'string' ? def.tex : def.name;
   if (shape >= 6) {
     const corner = name + '_corner';

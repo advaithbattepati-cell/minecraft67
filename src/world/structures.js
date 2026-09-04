@@ -31,8 +31,10 @@ import { BLOCK_BY_NAME } from './blocks.js';
 // ---------------------------------------------------------------------------
 let _loot = null;
 let _mobs = null;
+let _entity = null;
 let _lootTried = false;
 let _mobsTried = false;
+let _entityTried = false;
 
 function needLoot() {
   if (_loot || _lootTried) return _loot;
@@ -48,8 +50,20 @@ function needMobs() {
   } catch { /* no dynamic import */ }
   return _mobs;
 }
+/** entity.js's type registry, for the things structures place that are not mobs. */
+function needEntity() {
+  if (_entity || _entityTried) return _entity;
+  _entityTried = true;
+  try {
+    import('../entity/entity.js').then((m) => { _entity = m; }).catch(() => {});
+    // The registry is populated by itementity.js's side effects, not entity.js.
+    import('../entity/itementity.js').catch(() => {});
+  } catch { /* no dynamic import */ }
+  return _entity;
+}
 needLoot();
 needMobs();
+needEntity();
 
 // ---------------------------------------------------------------------------
 // Block ids
@@ -226,7 +240,16 @@ function flushMobQueue() {
 
 function doSpawn(world, name, x, y, z, opts) {
   try {
-    const e = _mobs.createMob(name, world, x, y, z, opts || {});
+    // Ask the entity registry first for anything that is not a registered mob,
+    // so createMob does not log an "unknown mob" warning for end crystals,
+    // item frames and the like.
+    const isMob = _mobs.MOBS && Object.prototype.hasOwnProperty.call(_mobs.MOBS, name);
+    let e = isMob ? _mobs.createMob(name, world, x, y, z, opts || {}) : null;
+    // Not everything a structure places is a mob. End crystals, item frames,
+    // armor stands and paintings live in the entity registry instead, and
+    // asking createMob for them silently produced nothing - which is why the
+    // End's obsidian pillars had no crystals on top.
+    if (!e) e = spawnRegistered(world, name, x, y, z, opts);
     if (!e) return null;
     if (opts) for (const k of Object.keys(opts)) { if (e[k] === undefined) e[k] = opts[k]; }
     if (opts && opts.persistent !== false) e.persistent = true;
@@ -234,6 +257,20 @@ function doSpawn(world, name, x, y, z, opts) {
     return e;
   } catch (e) {
     console.warn('[structures] could not spawn', name, e);
+    return null;
+  }
+}
+
+/** Builds a non-mob entity from entity.js's type registry, or null. */
+function spawnRegistered(world, name, x, y, z, opts) {
+  try {
+    needEntity();
+    const types = _entity && _entity.ENTITY_TYPES;
+    const Ctor = types && types[name];
+    if (typeof Ctor !== 'function') return null;
+    return new Ctor(world, x, y, z, opts || {});
+  } catch (err) {
+    console.warn('[structures] could not build entity', name, err);
     return null;
   }
 }
@@ -2216,7 +2253,10 @@ PIECES.ancient_city = (b) => {
 
 registerStructure('ancient_city', {
   spacing: 48, separation: 16, salt: 0xacc1, dimension: DIM_OVERWORLD,
-  biomes: ['deep_dark'],
+  // Gated on 'deep_dark' this never generated: deep_dark is a cave biome and
+  // the surface climate map never returns it. The city is placed deep
+  // underground anyway, so the depth survey below is the real constraint.
+  biomes: null,
   generate(world, cx, cz, rng) {
     const bx = (cx << 4) - 8, bz = (cz << 4) - 8;
     const top = surveyGround(world, bx, bz, bx + 30, bz + 26, 6).min;

@@ -2188,6 +2188,7 @@ registerEntityType('leash_knot', LeashKnot);
 registerEntityType('item_frame', ItemFrame);
 registerEntityType('painting', Painting);
 registerEntityType('armor_stand', ArmorStand);
+registerEntityType('end_crystal', EndCrystal);
 // 'end_crystal' is deliberately left to projectiles.js, which owns the
 // spawn path items.js calls; registering it here too would make which class a
 // save rebuilds depend on module load order.
