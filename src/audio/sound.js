@@ -913,6 +913,19 @@ S('attack_knockback', 'players', 0.7, 0.12, (ctx, dest, o) => {
   const e = noise(ctx, dest, o, { color: 'brown', dur: 0.14, gain: 0.32, a: 0.002, d: 0.12, s: 0.001, lp: [1000, 220] });
   return Math.max(e, tone(ctx, dest, o, { type: 'sine', f: 140, f2: 55, dur: 0.16, gain: 0.22, a: 0.002, d: 0.14, s: 0.0004, r: 0.05 }));
 });
+// player.js plays these two on a critical hit and a full-charge swing. Neither
+// existed, so both landed silently.
+S('crit', 'players', 0.8, 0.1, (ctx, dest, o) => {
+  const e = noise(ctx, dest, o, { color: 'white', dur: 0.16, gain: 0.3, a: 0.001, d: 0.13, s: 0.001, bp: [4200, 1400], q: 2.2 });
+  return Math.max(e, tone(ctx, dest, o, { type: 'triangle', f: 1180, f2: 1760, dur: 0.14, gain: 0.14, a: 0.001, d: 0.12, s: 0.0004, r: 0.04 }));
+});
+alias('critical_hit', 'crit');
+S('attack_strong', 'players', 0.8, 0.1, (ctx, dest, o) => {
+  const e = noise(ctx, dest, o, { color: 'white', dur: 0.13, gain: 0.34, a: 0.001, d: 0.11, s: 0.001, bp: [2200, 900], q: 1.6 });
+  return Math.max(e, tone(ctx, dest, o, { type: 'sine', f: 260, f2: 120, dur: 0.15, gain: 0.2, a: 0.001, d: 0.13, s: 0.0004, r: 0.04 }));
+});
+S('attack_weak', 'players', 0.5, 0.12, (ctx, dest, o) =>
+  noise(ctx, dest, o, { color: 'pink', dur: 0.08, gain: 0.16, a: 0.002, d: 0.07, s: 0.0005, lp: [900, 350] }));
 
 S('anvil_use', 'blocks', 0.85, 0.12, (ctx, dest, o) => {
   let e = noise(ctx, dest, o, { color: 'white', dur: 0.07, gain: 0.34, a: 0.001, d: 0.055, s: 0.0008, bp: [2600, 1100], q: 2 });

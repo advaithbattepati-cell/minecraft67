@@ -557,12 +557,10 @@ export class HUD {
       setVar(this.hotbarSelector, '--sel', sel);
     }
 
-    // A missing version counter (a stand-in inventory) yields NaN, which never
-    // compares equal, so those fall back to the per-slot signature check.
-    const version = typeof inv.version === 'number' ? inv.version : NaN;
-    if (version === this._last.invVersion) return;
-    this._last.invVersion = version;
-
+    // Nine string comparisons a frame is cheap, and the version counter does not
+    // move when a stack is mutated in place - which is exactly what happens when
+    // a tool takes durability damage, so the hotbar's damage bar never updated.
+    // The signature below covers count, damage, enchantments and custom names.
     for (let i = 0; i < HOTBAR_SIZE; i++) {
       let s = null;
       try { s = inv.get(i); } catch { s = null; }
