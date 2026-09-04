@@ -65,7 +65,7 @@
                .trading .trade-list .trade-row (+.selected +.locked)
                         .trade-arrow .villager-level .trade-xp > fill
                .creative-tabs > .creative-tab (+.active)
-               .recipe-book .recipe-search .recipe-results .recipe-entry (+.locked)
+               .recipe-book .recipe-search .recipe-results .recipe-entry (+.locked +.selected)
                .held-stack  (the stack that follows the cursor)
 
    MENUS       .menu-bg (+.panorama) .menu-vignette
@@ -2370,6 +2370,27 @@ input[type='range'].mc-slider::-moz-range-track {
 .recipe-entry.locked {
   filter: grayscale(1) brightness(0.5);
   cursor: not-allowed;
+}
+
+/* Marks the chosen loom pattern / stonecutter cut. Must come after :hover -
+   both are specificity (0,2,0), so the outline would be lost while hovering. */
+.hud-readout {
+  position: absolute;
+  top: calc(var(--u2) * 2);
+  left: calc(var(--u2) * 2);
+  padding: var(--u) var(--u2);
+  font: inherit;
+  font-size: calc(var(--u) * 7);
+  color: #e0e0e0;
+  text-shadow: var(--u) var(--u) 0 rgba(0, 0, 0, 0.75);
+  background: rgba(0, 0, 0, 0.35);
+  white-space: pre;
+  pointer-events: none;
+}
+
+.recipe-entry.selected {
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: inset 0 0 0 var(--u) #ffffff;
 }
 
 /* ==========================================================================

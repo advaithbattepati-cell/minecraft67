@@ -271,6 +271,9 @@ function explorerMapFor(kind, price, maxUses = 12, xp = 5) {
     roll(r) {
       const s = mkStack('filled_map', 1, {
         display: info.display,
+        // inventory.js reads customName for the display name; keeping only
+        // `display` named the bought map "Filled Map" once it left the trade screen.
+        customName: info.display,
         rarity: 'uncommon',
         map: {
           kind, marker: info.marker, structure: info.structure, color: info.color,

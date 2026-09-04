@@ -309,15 +309,11 @@ const OPTION_DEFS = [
     key: 'entityShadows', label: 'Entity Shadows', type: 'toggle', category: 'video',
     def: true, format: onOff,
   },
-  {
-    key: 'mipmaps', label: 'Mipmap Levels', type: 'toggle', category: 'video',
-    def: false, format: (v) => (v ? 'On (4)' : 'Off'),
-    hint: 'Softens distant textures. Off keeps the crisp pixel look.',
-  },
-  {
-    key: 'vsync', label: 'VSync', type: 'toggle', category: 'video',
-    def: true, format: onOff,
-  },
+  // No mipmap or vsync toggle here on purpose. The texture atlas packs its
+  // tiles edge to edge with no padding, so mipmapping would blend neighbouring
+  // textures into each other at distance, and requestAnimationFrame is already
+  // paced to the display with no way to opt out. A switch that cannot be
+  // honoured is worse than no switch; the frame cap below covers the real need.
   {
     key: 'fullscreen', label: 'Fullscreen', type: 'toggle', category: 'video',
     def: false, format: onOff,

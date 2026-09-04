@@ -233,6 +233,8 @@ async function boot() {
     await safe('save.init', () => Game.save.init(), null);
   }
 
+  maxFpsSetting = Number(setting('maxFps', 0)) || 0;
+
   wireEvents();
 
   bootStatus('Ready', 1);
@@ -281,6 +283,7 @@ function wireEvents() {
     if (key === 'fov' && Game.camera) { Game.camera.fov = value; Game.camera.updateProjectionMatrix(); }
     if (key === 'renderDistance') safe('rd', () => Game.chunkRenderer.setRenderDistance(value), null);
     if (key === 'guiScale') document.documentElement.style.setProperty('--gui-scale', String(value));
+    if (key === 'maxFps') maxFpsSetting = Number(value) || 0;
     if (key === 'smoothLighting') {
       const on = value !== false;
       for (const k in Game.worlds) Game.worlds[k].smoothLighting = on;
@@ -531,12 +534,19 @@ function switchDimension(to) {
 // ---------------------------------------------------------------------------
 let lastStartTime = -Infinity;
 let lastTime = 0;
+/** Cached so the render loop never touches the settings store per frame. */
+let maxFpsSetting = 0;
 let tickAccumulator = 0;
 let fpsAccum = 0, fpsFrames = 0, fpsTimer = 0;
 
 function frame(now) {
   requestAnimationFrame(frame);
   if (!Game.running) return;
+
+  // Optional frame cap. rAF already paces to the display, so this only matters
+  // when someone wants to spend less battery or leave headroom for other work.
+  const cap = maxFpsSetting;
+  if (cap > 0 && lastTime && now - lastTime < 1000 / cap - 0.5) return;
 
   const frameStart = performance.now();
   const dtRaw = lastTime ? (now - lastTime) / 1000 : 0;

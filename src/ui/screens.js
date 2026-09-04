@@ -2718,7 +2718,8 @@ BUILDERS.loom = function loomScreen(screen, ctx) {
   });
 
   for (let i = 0; i < LOOM_PATTERNS.length; i++) {
-    const e = el('div', 'recipe-entry', list, '');
+    // `picked` starts at 0, so the first pattern must render marked.
+    const e = el('div', 'recipe-entry' + (i === picked ? ' selected' : ''), list, '');
     e.title = prettyName(LOOM_PATTERNS[i]);
     el('span', 'mc-hint', e, LOOM_PATTERNS[i].slice(0, 2).toUpperCase());
     e.addEventListener('mousedown', (ev) => {
@@ -2726,8 +2727,10 @@ BUILDERS.loom = function loomScreen(screen, ctx) {
       ev.stopPropagation();
       click();
       picked = i;
-      for (const c of list.children) c.classList.remove('locked');
-      e.classList.add('locked');
+      // `.locked` means unavailable and renders greyed out with a
+      // not-allowed cursor; the selected pattern needs its own marker.
+      for (const c of list.children) c.classList.remove('selected');
+      e.classList.add('selected');
       recompute();
       this.refresh();
     });
@@ -2775,7 +2778,7 @@ BUILDERS.stonecutter = function stonecutterScreen(screen, ctx) {
     while (list.firstChild) list.removeChild(list.firstChild);
     for (let i = 0; i < options.length; i++) {
       const o = options[i];
-      const e = el('div', 'recipe-entry' + (i === picked ? ' locked' : ''), list);
+      const e = el('div', 'recipe-entry' + (i === picked ? ' selected' : ''), list);
       setIcon(el('img', '', e), o.output);
       e.title = getItem(o.output).display || prettyName(o.output);
       e.addEventListener('mousedown', (ev) => {

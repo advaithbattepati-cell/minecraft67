@@ -243,6 +243,11 @@ export class HUD {
     setHidden(this.titleCard, true);
 
     // Action bar + held item name, just above the hotbar.
+    // Always-on FPS / coordinates readout, independent of the F3 overlay.
+    this.readout = el('div', 'hud-readout', layer);
+    setHidden(this.readout, true);
+    this._readoutText = '';
+
     this.actionBar = el('div', 'action-bar', layer);
     setHidden(this.actionBar, true);
     this.itemName = el('div', 'hotbar-item-name', layer);
@@ -486,6 +491,32 @@ export class HUD {
    * Drives everything. Called once per rendered frame from main.js.
    * @param {number} dt seconds since the previous frame
    */
+  /**
+   * The showFps / showCoordinates options. Both were in the settings menu with
+   * nothing reading them. Refreshed on the slow poll - four times a second is
+   * plenty and keeps this off the per-frame path.
+   */
+  _updateReadout(p, slowTick) {
+    if (!slowTick) return;
+    let fps = false, coords = false;
+    try {
+      fps = Game.settings.get('showFps') === true;
+      coords = Game.settings.get('showCoordinates') === true;
+    } catch { /* defaults are fine */ }
+    if (!fps && !coords) { setHidden(this.readout, true); return; }
+    let text = '';
+    if (fps) text += `${Game.stats.fps | 0} fps`;
+    if (coords && p) {
+      if (text) text += '   ';
+      text += `${p.x.toFixed(1)} ${p.y.toFixed(1)} ${p.z.toFixed(1)}`;
+    }
+    if (text !== this._readoutText) {
+      this._readoutText = text;
+      this.readout.textContent = text;
+    }
+    setHidden(this.readout, false);
+  }
+
   update(dt) {
     const d = Number(dt) || 0;
     this._t += d;
@@ -510,6 +541,7 @@ export class HUD {
 
     const survival = mode !== GAMEMODE.CREATIVE;
 
+    this._updateReadout(p, slowTick);
     this._updateHotbar(p);
     this._updateItemName(p, d);
     this._updateActionBar(d);
