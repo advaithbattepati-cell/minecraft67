@@ -1195,6 +1195,14 @@ export class Entity {
   requestDimension(target) {
     const from = this.world ? this.world.dimension : DIM_OVERWORLD;
     if (target === from) return;
+    // Only the player's move is driven from outside, by main.js reacting to
+    // 'dimensionchange'. Nothing listens for anything else, so a mob that walked
+    // into a portal used to get its coordinates rescaled and then stay in the
+    // world it was already in - teleported to x/8, z/8, or slammed to 0,0 for
+    // the End - and usually fell out of the world from there.
+    const playerLike = this.isPlayer || Game.player === this;
+    const dest = playerLike ? null : ((Game.worlds && Game.worlds[target]) || null);
+    if (!playerLike && (!dest || dest === this.world)) return;
     this.portalCooldown = PORTAL_COOLDOWN_TICKS;
     this.portalTicks = 0;
 
@@ -1211,8 +1219,18 @@ export class Entity {
 
     playSound(this, 'portal', 0.7, 1);
     Game.emit('portal', this, target, from);
-    // Only the player drags the camera between dimensions.
-    if (this.isPlayer || Game.player === this) Game.emit('dimensionchange', from, target);
+    if (playerLike) {
+      // main.js switchDimension() does the world swap plus the renderer work.
+      Game.emit('dimensionchange', from, target);
+    } else {
+      // Put the mob on solid ground in the destination, or it spawns over
+      // ungenerated air, falls, and dies to out-of-world damage.
+      dest.ensureChunk(Math.floor(this.x) >> 4, Math.floor(this.z) >> 4);
+      const h = dest.getHeight(Math.floor(this.x), Math.floor(this.z));
+      if (Number.isFinite(h)) this.y = clamp(Math.max(this.y, h + 1), 1, WORLD_HEIGHT - 3);
+      this.py = this.y;
+      dest.addEntity(this);        // detaches from the previous world itself
+    }
   }
 
   // ---- damage ------------------------------------------------------------
@@ -1231,6 +1249,11 @@ export class Entity {
     if (this.isFireImmune() && source && source.fire) return false;
 
     const bypassCooldown = !!(source && source.bypassCooldown);
+    // The high-water mark has to be what the entity was charged in total, not
+    // what survived the subtraction below. Storing the reduced value froze the
+    // mark, so every later bigger hit in the same window let its full excess
+    // through again instead of only the difference.
+    const incoming = amount;
     if (!bypassCooldown && this.hurtTime > HURT_RESISTANT_TICKS / 2) {
       // Inside the invulnerability window only a *bigger* hit lands, and only
       // for the difference.
@@ -1242,7 +1265,7 @@ export class Entity {
     if (dealt <= 0) return false;
 
     this.lastDamageSource = source;
-    this.lastDamageAmount = Math.max(this.lastDamageAmount, amount);
+    this.lastDamageAmount = Math.max(this.lastDamageAmount, incoming);
     if (!bypassCooldown) { this.hurtTime = HURT_RESISTANT_TICKS; this.maxHurtTime = HURT_RESISTANT_TICKS; }
     else if (this.hurtTime <= 0) { this.hurtTime = 5; this.maxHurtTime = 5; }
 

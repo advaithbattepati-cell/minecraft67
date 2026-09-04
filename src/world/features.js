@@ -592,7 +592,10 @@ function scatterCocoa(world, x, y, z, h, rng, width = 1) {
     const tz = z + (d[2] !== 0 ? (d[2] > 0 ? width : -1) : along);
     const ty = y + rng.range(2, Math.max(2, h - 2));
     if (!isAirLike(world, tx, ty, tz)) continue;
-    set(world, tx, ty, tz, cocoa, rng.int(3));
+    // Bits 2-3 carry the facing back towards the trunk. Without it every pod
+    // reads as facing north, so canSurvive probes the wrong neighbour and the
+    // pod pops off the first time the block is updated.
+    set(world, tx, ty, tz, cocoa, (hf << 2) | rng.int(3));
   }
 }
 

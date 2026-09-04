@@ -1290,7 +1290,7 @@ defineBlock('cocoa', {
   model: 'crop', tex: 'cocoa', solid: false, opaque: false, filter: 0, collision: 'none',
   hardness: 0.2, resistance: 3, tool: 'axe', sound: 'wood', ticksRandomly: true,
   renderPass: 'cutout', group: 'decoration', itemName: 'cocoa_beans',
-  drops: (ctx) => [st('cocoa_beans', ((ctx ? ctx.meta | 0 : 0) & 7) >= 2 ? 3 : 1)],
+  drops: (ctx) => [st('cocoa_beans', ((ctx ? ctx.meta | 0 : 0) & 3) >= 2 ? 3 : 1)],
 });
 defineBlock('chorus_plant', {
   hardness: 0.4, resistance: 0.4, tool: 'axe', sound: 'wood', opaque: false, filter: 0,

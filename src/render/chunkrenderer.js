@@ -312,6 +312,9 @@ export class ChunkRenderer {
     this._frustum = new THREE.Frustum();
     this._projScreen = new THREE.Matrix4();
     this._stats = { rendered: 0, meshed: 0, queued: 0, loaded: 0, meshes: 0, triangles: 0, meshMs: 0 };
+    // Quantized daylight multiplier the built meshes were baked with, so we can
+    // notice when the time of day has moved far enough to matter.
+    this._skyQ = -1;
 
     // ---- cursor overlays ---------------------------------------------
     this._selBoxes = null;
@@ -400,6 +403,36 @@ export class ChunkRenderer {
   }
 
   /** Mirrors sky.js's fog into the scene fog our materials read. */
+  /**
+   * Terrain brightness is baked into each chunk's vertex colours, and the
+   * daylight multiplier is folded in at mesh time, so nothing darkened at dusk
+   * until a chunk happened to change for some other reason. Re-bake when the
+   * multiplier moves a noticeable step.
+   *
+   * The step has to be quantized: skyLightFactor() slides continuously through
+   * dawn, dusk and the weather ramps, so testing the raw value would re-mesh
+   * every chunk every frame. 32 buckets is about as fine as the 0..15 light
+   * quantization can even show, and works out to roughly one pass per 40
+   * seconds of a 20-minute day.
+   */
+  _checkDaylight(world) {
+    let f = 1;
+    try { f = world.skyLightFactor ? world.skyLightFactor() : 1; } catch { f = 1; }
+    const q = Math.round(Math.max(0, Math.min(1, f)) * 32);
+    if (q === this._skyQ) return;
+    this._skyQ = q;
+    // Invalidate our own cached version, not chunk.dirty: that flag belongs to
+    // the world and is driven by lighting and block changes. The existing
+    // nearest-first budget then rebuilds them a few at a time, and the old
+    // meshes stay on screen meanwhile.
+    for (const e of this.chunks.values()) e.version = -1;
+  }
+
+  /** Invalidates every built mesh so the budget rebuilds them. */
+  invalidateAll() {
+    for (const e of this.chunks.values()) e.version = -1;
+  }
+
   _syncFog() {
     const scene = this.scene;
     if (!scene) return;
@@ -497,6 +530,7 @@ export class ChunkRenderer {
 
     this._updateAnimation();
     this._syncFog();
+    this._checkDaylight(world);
 
     const camera = Game.camera;
     let px = 0, py = 64, pz = 0;

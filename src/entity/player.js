@@ -29,7 +29,8 @@ import {
   PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_EYE, PLAYER_EYE_SNEAK, SNEAK_HEIGHT, STEP_HEIGHT,
   WALK_SPEED, SPRINT_SPEED, SNEAK_SPEED, FLY_SPEED, SWIM_SPEED, JUMP_VELOCITY,
   REACH_SURVIVAL, REACH_CREATIVE, GAMEMODE, DIFFICULTY, HOTBAR_SIZE,
-  FACE_DOWN, FACE_UP, FACE_DIRS, HFACE_DIRS, DIM_OVERWORLD, ARMOR_HEAD, ARMOR_FEET,
+  FACE_DOWN, FACE_UP, FACE_DIRS, HFACE_DIRS, HFACE_TO_FACE, DIM_OVERWORLD,
+  ARMOR_HEAD, ARMOR_FEET,
 } from '../core/constants.js';
 import { clamp, AABB, angleDiff, prettyName } from '../core/util.js';
 import { Game } from '../core/game.js';
@@ -1666,6 +1667,17 @@ export class Player extends LivingEntity {
         return 0;
       }
 
+      case 'piston': {
+        // Pistons store a 6-way FACE index, not the 4-way horizontal facing the
+        // other front-faced machines use: redstone.js and the mesher both read
+        // `meta & 7` as a FACE, and worldgen already writes it that way. Falling
+        // through to the generic front-face branch below gave every placed
+        // piston a head on the wrong side. Bit 3 stays clear for "extended".
+        if (this.pitch < -Math.PI / 3) return FACE_UP;
+        if (this.pitch > Math.PI / 3) return FACE_DOWN;
+        return HFACE_TO_FACE[hf];
+      }
+
       case 'crop':
       case 'cross':
       case 'flat':
@@ -1679,7 +1691,7 @@ export class Player extends LivingEntity {
 
     // Machines with a distinct front face point it back at the player.
     if (def.tex && typeof def.tex === 'object' && def.tex.front !== undefined) return opposite & 3;
-    if (def.model === 'piston' || def.model === 'anvil' || def.model === 'hopper') return opposite & 3;
+    if (def.model === 'anvil' || def.model === 'hopper') return opposite & 3;
     return 0;
   }
 

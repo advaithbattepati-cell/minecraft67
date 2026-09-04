@@ -781,7 +781,10 @@ function freeQuad(b, pi, uv, shade,
   const len = Math.hypot(nx, ny, nz) || 1;
   nx /= len; ny /= len; nz /= len;
   emitQuad(b, nx, ny, nz, false);
-  if (both) emitQuadBack(b, -nx, -ny, -nz);
+  // `both` is vestigial: every emitter that passes it lands in the cutout
+  // builder, whose material is double-sided, so a reversed copy was an exact
+  // coplanar duplicate. A poppy cost 8 triangles where 4 suffice.
+  void both;
 }
 
 // ---------------------------------------------------------------------------
@@ -1248,10 +1251,19 @@ function emitCauldron(b, id, meta, pi, smooth) {
   boxAll(b, pi, 2 * S, 3 * S, 14 * S, 14 * S, 1, 1, smooth);
   const inner = def.tex && typeof def.tex === 'object' ? def.tex.inner : null;
   if (inner) {
-    const level = (meta & 3) || 3;
-    const h = 3 * S + (level / 3) * (12 * S);
-    const uv = uvOf(inner);
-    freeQuad(b, pi, uv, 1.0, 2 * S, h, 14 * S, 14 * S, h, 14 * S, 14 * S, h, 2 * S, 2 * S, h, 2 * S, false);
+    // Composters count 0..7, filled cauldrons 1..3, and the plain empty
+    // cauldron has no contents at all. `(meta & 3) || 3` applied to all of them
+    // drew an empty cauldron brim-full and every composter as full.
+    const composter = def.name === 'composter';
+    const max = composter ? 7 : 3;
+    const level = composter ? (meta & 7)
+      : def.name === 'cauldron' ? 0
+        : ((meta & 3) || 3);
+    if (level > 0) {
+      const h = 3 * S + (level / max) * (12 * S);
+      const uv = uvOf(inner);
+      freeQuad(b, pi, uv, 1.0, 2 * S, h, 14 * S, 14 * S, h, 14 * S, 14 * S, h, 2 * S, 2 * S, h, 2 * S, false);
+    }
   }
 }
 
@@ -1261,7 +1273,9 @@ function emitHopper(b, id, meta, pi, smooth) {
   boxAll(b, pi, 0, 10 * S, 2 * S, 2 * S, 1, 14 * S, smooth);
   boxAll(b, pi, 14 * S, 10 * S, 2 * S, 1, 1, 14 * S, smooth);
   boxAll(b, pi, 0, 4 * S, 0, 1, 10 * S, 1, smooth);
-  const facing = (meta & 7) >= 2 ? (meta & 3) : -1;
+  // Hopper meta is a plain 4-way facing; the old >= 2 test hid the spout on
+  // hoppers placed facing north or east.
+  const facing = meta & 3;
   boxAll(b, pi, 6 * S, 0, 6 * S, 10 * S, 4 * S, 10 * S, smooth);
   if (facing >= 0) {
     const dx = HDX[facing], dz = HDZ[facing];
@@ -1360,8 +1374,9 @@ function emitRail(b, id, meta, pi) {
   } else {
     setUV(0, uv.u0, uv.v1); setUV(1, uv.u1, uv.v1); setUV(2, uv.u1, uv.v0); setUV(3, uv.u0, uv.v0);
   }
+  // Rails land in the double-sided cutout material, so the reversed copy was a
+  // coplanar duplicate.
   emitQuad(b, 0, 1, 0, false);
-  emitQuadBack(b, 0, -1, 0);
 }
 
 function emitVine(b, id, meta, pi) {
@@ -1482,7 +1497,10 @@ function emitBlock(id, meta, pi, wx, wy, wz, smooth) {
       if (id === ID_COCOA) {
         const stage = Math.min(2, meta & 3);
         const w = (4 + stage * 2) * S, hh = (5 + stage * 2) * S;
-        const facing = (meta >> 2) & 3;
+        // Facing points at the trunk the pod hangs from, and the rest of the
+        // codebase (ladder, wall_sign) puts the model against the -facing side,
+        // so flip it or every pod floats on the wrong side of its log.
+        const facing = (((meta >> 2) & 3) + 2) & 3;
         const dx = HDX[facing], dz = HDZ[facing];
         const cx = 0.5 + dx * (0.5 - w / 2 - S), cz = 0.5 + dz * (0.5 - w / 2 - S);
         boxAll(b, pi, cx - w / 2, 12 * S - hh, cz - w / 2, cx + w / 2, 12 * S, cz + w / 2, false);

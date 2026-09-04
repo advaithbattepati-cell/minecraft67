@@ -1591,6 +1591,9 @@ class AttackRangedGoal extends RangedGoalBase {
   tick() {
     const m = this.mob;
     const t = this.target;
+    // AIController clears the target mid-tick but only re-selects goals every
+    // third tick, so a running goal can be ticked with no target.
+    if (!t) return;
     this.lookAtEntity(t, 0.5);
     const dist = Math.sqrt(m.distanceToSq(t.x, t.y, t.z));
     const sees = m.canSee ? m.canSee(t) : canSee(this.world, m, t);
@@ -1635,6 +1638,9 @@ class AttackBowGoal extends RangedGoalBase {
   tick() {
     const m = this.mob;
     const t = this.target;
+    // AIController clears the target mid-tick but only re-selects goals every
+    // third tick, so a running goal can be ticked with no target.
+    if (!t) return;
     this.lookAtEntity(t, 0.55);
     const dist = Math.sqrt(m.distanceToSq(t.x, t.y, t.z));
     const sees = m.canSee ? m.canSee(t) : canSee(this.world, m, t);
@@ -1697,6 +1703,9 @@ class RangedFireballGoal extends RangedGoalBase {
   tick() {
     const m = this.mob;
     const t = this.target;
+    // AIController clears the target mid-tick but only re-selects goals every
+    // third tick, so a running goal can be ticked with no target.
+    if (!t) return;
     this.lookAtEntity(t, 0.6);
     const dist = Math.sqrt(m.distanceToSq(t.x, t.y, t.z));
     const sees = m.canSee ? m.canSee(t) : canSee(this.world, m, t);
@@ -2675,6 +2684,9 @@ class GuardianBeamGoal extends Goal {
   tick() {
     const m = this.mob;
     const t = this.target;
+    // AIController clears the target mid-tick but only re-selects goals every
+    // third tick, so a running goal can be ticked with no target.
+    if (!t) return;
     this.charge++;
     m.beamTicks = this.charge;
     m.beamProgress = clamp(this.charge / this.chargeTime, 0, 1);

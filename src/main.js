@@ -273,6 +273,14 @@ function wireEvents() {
     if (key === 'fov' && Game.camera) { Game.camera.fov = value; Game.camera.updateProjectionMatrix(); }
     if (key === 'renderDistance') safe('rd', () => Game.chunkRenderer.setRenderDistance(value), null);
     if (key === 'guiScale') document.documentElement.style.setProperty('--gui-scale', String(value));
+    if (key === 'smoothLighting') {
+      const on = value !== false;
+      for (const k in Game.worlds) Game.worlds[k].smoothLighting = on;
+      // Meshes already built keep their old lighting until something
+      // invalidates them; rebuild in place rather than clearing, which would
+      // dispose the GPU buffers and pop the whole world back in.
+      safe('smoothRemesh', () => Game.chunkRenderer.invalidateAll(), null);
+    }
   });
 
   // Pointer lock drives pause so the player never fights an invisible cursor.
@@ -334,7 +342,13 @@ async function startNewWorld(opts = {}) {
       const gen = mods.worldgen.createGenerator(Game.seed, dim);
       return new mods.world.World({ seed: Game.seed, dimension: dim, generator: gen });
     }, null);
-    if (w) Game.worlds[dim] = w;
+    if (w) {
+      // mesher.js reads world.smoothLighting; nothing ever set it, so the
+      // Smooth Lighting option was inert. Set it on every dimension, or it
+      // silently reverts after a trip through a portal.
+      w.smoothLighting = safe('smoothSetting', () => Game.settings.get('smoothLighting'), true) !== false;
+      Game.worlds[dim] = w;
+    }
   }
   Game.world = Game.worlds[DIM_OVERWORLD];
   Game.dimension = DIM_OVERWORLD;

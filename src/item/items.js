@@ -644,11 +644,13 @@ function boneMealUse(world, player, stack, hit) {
     return true;
   }
   if (GROWABLE_CROPS.has(name)) {
-    const max = name === 'beetroots' || name === 'nether_wart' || name === 'cocoa' ? 3 : name === 'sweet_berry_bush' ? 3 : 7;
+    const max = name === 'cocoa' ? 2 : name === 'beetroots' || name === 'nether_wart' || name === 'sweet_berry_bush' ? 3 : 7;
     const stage = meta & (max === 3 ? 3 : 7);
     if (stage >= max) return false;
     const grow = 2 + Math.floor(Math.random() * 4);
-    world.setBlock(x, y, z, bid(name), Math.min(max, stage + grow));
+    // Keep any high meta bits (cocoa stores its facing there); writing the bare
+    // stage would erase it and the pod would pop off.
+    world.setBlock(x, y, z, bid(name), (meta & ~(max === 3 ? 3 : 7)) | Math.min(max, stage + grow));
     boneMealEffect(world, x, y, z);
     shrink(player, stack, 1);
     return true;

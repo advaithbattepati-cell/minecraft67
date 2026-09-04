@@ -1643,6 +1643,10 @@ export class World {
         console.error('[world] entity tick failed', e.type, err);
       }
       if (e.removed) { this._removedCount++; continue; }
+      // A tick can move an entity into another world (a mob walking through a
+      // portal). Re-inserting it into this world's spatial hash would leave a
+      // ghost behind for entitiesInAABB.
+      if (e.world !== this) continue;
       this.onEntityMoved(e);
     }
   }

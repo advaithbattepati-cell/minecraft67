@@ -694,11 +694,15 @@ export class Mob extends LivingEntity {
   handleDeath(source) {
     if (this._deathSeen) return;
     this._deathSeen = true;
+    // Entity.kill() sets dead and emits 'entitydeath' itself. When the hit came
+    // through hurt(), kill() has already run by the time we get here, so emit
+    // only when it has not - otherwise every mob death fired the event twice.
+    const alreadyEmitted = this.dead;
     this.dead = true;
     playAt(this.world, this.def.sounds.death, this.x, this.y, this.z, 1, 1);
     try { this.def.onDeath(this, source); } catch (e) { console.error('[mob] onDeath', this.type, e); }
     this.dropLoot(source, lootingOf(source));
-    Game.emit('entitydeath', this, source);
+    if (!alreadyEmitted) Game.emit('entitydeath', this, source);
   }
 
   /**
@@ -751,6 +755,13 @@ export class Mob extends LivingEntity {
     }
     return out;
   }
+
+  /**
+   * @override Mob.dropLoot already spawns this mob's XP orbs, and knows the
+   * baby / spawner / alwaysDropsXp rules. The LivingEntity fallback would add a
+   * second identical batch, so a killed mob paid out double.
+   */
+  dropXP(_source) { /* handled by dropLoot */ }
 
   /** Alias in case the base class prefers this name. */
   dropDeathLoot(source, looting) { return this.dropLoot(source, looting); }
@@ -960,7 +971,10 @@ export class Mob extends LivingEntity {
 
     if (this.health <= 0) {
       if (!this._deathSeen) this.handleDeath(this.lastDamageSource);
-      this.deathTime = (this.deathTime || 0) + 1;
+      // Entity.tick already advances deathTime. Incrementing it here too ran
+      // the death animation at double speed and binned the corpse in 10 ticks.
+      // The removal below still matters: Entity.tick only reaps mobs that are
+      // not persistent, and villagers, tamed pets, golems and bosses all are.
       if (this.deathTime > 20) this.remove();
       return;
     }
@@ -1800,8 +1814,11 @@ function horseCommon(extra) {
       const f = (rider.moveForward || 0), s = (rider.moveStrafe || 0);
       if (f || s) {
         const sp = m.moveSpeed * 22;
-        m.vx += (-Math.sin(m.yaw) * f + Math.cos(m.yaw) * s) * sp * 0.05;
-        m.vz += (Math.cos(m.yaw) * f + Math.sin(m.yaw) * s) * sp * 0.05;
+        // Right vector is (-cos yaw, -sin yaw), matching player.js and
+        // vehicles.js. With these signs flipped a saddled horse strafed the
+        // opposite way from every other rideable in the game.
+        m.vx += (-Math.sin(m.yaw) * f - Math.cos(m.yaw) * s) * sp * 0.05;
+        m.vz += (Math.cos(m.yaw) * f - Math.sin(m.yaw) * s) * sp * 0.05;
       }
       if (rider.wantsJump && m.onGround) { m.vy = 10 * m.jumpStrength; rider.wantsJump = false; }
     },
