@@ -410,6 +410,8 @@ async function startNewWorld(opts = {}) {
     if (Game.mode === GAMEMODE.CREATIVE) Game.player.canFly = true;
   }
 
+  if (opts.bonusChest) placeBonusChest(spawn);
+
   Game.ticks = 0;
   Game.started = true;
   Game.paused = false;
@@ -464,6 +466,35 @@ async function loadSavedWorld(name) {
     if (apply) for (const dim in Game.worlds) apply(Game.worlds[dim], data, dim);
     else if (data.time != null && Game.world) Game.world.time = data.time;
     if (data.player && Game.player && typeof Game.player.load === 'function') Game.player.load(data.player);
+  }, null);
+}
+
+/**
+ * The Create New World screen's Bonus Chest toggle. The option and the
+ * spawn_bonus_chest loot table both existed; nothing ever placed the chest.
+ */
+function placeBonusChest(spawn) {
+  safe('bonusChest', () => {
+    const world = Game.world;
+    const chest = mods.blocks.blockByName('chest');
+    if (!chest) return;
+    const rng = new RNG(Game.seed ^ 0xb0c5);
+    // Look for open ground a couple of blocks from where the player lands.
+    const around = [[2, 0], [-2, 0], [0, 2], [0, -2], [2, 2], [-2, -2], [3, 0], [0, 3]];
+    for (const [dx, dz] of around) {
+      const x = Math.floor(spawn.x) + dx, z = Math.floor(spawn.z) + dz;
+      const y = world.getHeight(x, z);
+      if (!Number.isFinite(y) || y < 1 || y >= WORLD_HEIGHT - 2) continue;
+      if (!world.isSolid(x, y - 1, z) || world.isSolid(x, y, z)) continue;
+      world.setBlock(x, y, z, chest.id, 0, 3);
+      const be = world.getBlockEntity(x, y, z);
+      if (be) {
+        if (!be.items) be.items = new Array(27).fill(null);
+        mods.loot.fillChest(be.items, 'spawn_bonus_chest', rng);
+      }
+      Game.log('A bonus chest is waiting near your spawn.');
+      return;
+    }
   }, null);
 }
 
